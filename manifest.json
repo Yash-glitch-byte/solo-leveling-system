@@ -1,0 +1,18 @@
+{
+  "name": "Solo Leveling | The System",
+  "short_name": "The System",
+  "description": "Gamified life-tracking and habit quest system inspired by Solo Leveling.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#050811",
+  "theme_color": "#00d2ff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
