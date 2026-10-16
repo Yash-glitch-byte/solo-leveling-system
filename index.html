@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solo Leveling | The System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- System Scanlines and Glow Effects -->
+  <div class="system-grid-bg"></div>
+  <div class="vignette"></div>
+
+  <!-- Audio Chime Control -->
+  <div class="sound-toggle-bar">
+    <button id="soundToggleBtn" class="hud-mini-btn" title="Toggle System Sound FX">
+      <span class="icon">🔊</span> SYSTEM AUDIO: <span id="soundStatus">ACTIVE</span>
+    </button>
+  </div>
+
+  <main class="container">
+    <!-- Header / System Notification Bar -->
+    <header class="system-header">
+      <div class="system-badge">[ SYSTEM ACTIVATED ]</div>
+      <h1 class="system-title">PLAYER STATUS WINDOW</h1>
+      <p class="system-subtitle">"Daily quest progress will determine your hunter rank."</p>
+    </header>
+
+    <!-- Main Grid: Status Card on Left, Quests & Activity on Right -->
+    <div class="dashboard-grid">
+      
+      <!-- LEFT COLUMN: Status Window -->
+      <section class="hud-card status-card">
+        <div class="card-corner top-left"></div>
+        <div class="card-corner top-right"></div>
+        <div class="card-corner bottom-left"></div>
+        <div class="card-corner bottom-right"></div>
+        
+        <div class="card-header">
+          <span class="hud-tag">STATUS</span>
+          <span class="hunter-rank" id="hunterRank">E-RANK HUNTER</span>
+        </div>
+
+        <div class="player-profile">
+          <div class="avatar-frame">
+            <div class="avatar-glow"></div>
+            <div class="avatar-monogram" id="playerAvatar">SL</div>
+          </div>
+          <div class="player-meta">
+            <div class="player-name-row">
+              <h2 id="playerName" class="player-name" contenteditable="true" title="Click to edit your name">Sung Jin-woo</h2>
+              <span class="edit-hint">✎</span>
+            </div>
+            <div class="player-title" id="playerTitle">Title: "The Awakened One"</div>
+            <div class="player-job" id="playerJob">Job: None</div>
+          </div>
+        </div>
+
+        <!-- Level & XP -->
+        <div class="level-box">
+          <div class="level-display">
+            <span class="level-label">LEVEL</span>
+            <span class="level-number" id="playerLevel">1</span>
+          </div>
+          <div class="xp-container">
+            <div class="xp-text">
+              <span>EXP</span>
+              <span id="xpValues">0 / 100 XP</span>
+            </div>
+            <div class="xp-bar-outer">
+              <div class="xp-bar-fill" id="xpBarFill" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vitals: HP & MP -->
+        <div class="vitals-section">
+          <div class="vital-row">
+            <div class="vital-label">
+              <span>HP (Physical Energy)</span>
+              <span id="hpValues">100 / 100</span>
+            </div>
+            <div class="bar-outer hp-bar">
+              <div class="bar-fill hp-fill" id="hpBarFill" style="width: 100%;"></div>
+            </div>
+          </div>
+          <div class="vital-row">
+            <div class="vital-label">
+              <span>MP (Mental Focus)</span>
+              <span id="mpValues">100 / 100</span>
+            </div>
+            <div class="bar-outer mp-bar">
+              <div class="bar-fill mp-fill" id="mpBarFill" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attributes / Stats Table -->
+        <div class="stats-section">
+          <div class="stats-header">
+            <h3>ATTRIBUTES</h3>
+            <div class="stat-points-indicator" id="statPointsBadge">
+              POINTS: <span id="statPointsValue">0</span>
+            </div>
+          </div>
+
+          <div class="stat-list">
+            <div class="stat-item" data-stat="str">
+              <span class="stat-name">STR <small>(Strength / Workout)</small></span>
+              <div class="stat-right">
+                <span class="stat-val" id="statStr">10</span>
+                <button class="add-stat-btn" data-target="str" title="Add 1 Point">+</button>
+              </div>
+            </div>
+
+            <div class="stat-item" data-stat="agi">
+              <span class="stat-name">AGI <small>(Agility / Speed)</small></span>
+              <div class="stat-right">
+                <span class="stat-val" id="statAgi">10</span>
+                <button class="add-stat-btn" data-target="agi" title="Add 1 Point">+</button>
+              </div>
+            </div>
+
+            <div class="stat-item" data-stat="vit">
+              <span class="stat-name">VIT <small>(Vitality / Sleep & Water)</small></span>
+              <div class="stat-right">
+                <span class="stat-val" id="statVit">10</span>
+                <button class="add-stat-btn" data-target="vit" title="Add 1 Point">+</button>
+              </div>
+            </div>
+
+            <div class="stat-item" data-stat="int">
+              <span class="stat-name">INT <small>(Intelligence / Study)</small></span>
+              <div class="stat-right">
+                <span class="stat-val" id="statInt">10</span>
+                <button class="add-stat-btn" data-target="int" title="Add 1 Point">+</button>
+              </div>
+            </div>
+
+            <div class="stat-item" data-stat="per">
+              <span class="stat-name">PER <small>(Perception / Focus)</small></span>
+              <div class="stat-right">
+                <span class="stat-val" id="statPer">10</span>
+                <button class="add-stat-btn" data-target="per" title="Add 1 Point">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reset & Dev Controls -->
+        <div class="status-footer">
+          <button id="resetDayBtn" class="hud-text-btn">↺ Reset Day Quests</button>
+          <button id="restartPlayerBtn" class="hud-text-btn danger-btn">Reset All Data</button>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: Quests & System Logs -->
+      <section class="quests-column">
+        
+        <!-- DAILY QUEST CARD -->
+        <div class="hud-card quest-card">
+          <div class="card-corner top-left"></div>
+          <div class="card-corner top-right"></div>
+          <div class="card-corner bottom-left"></div>
+          <div class="card-corner bottom-right"></div>
+
+          <div class="card-header">
+            <span class="hud-tag alert-tag">[QUEST INFO]</span>
+            <span class="quest-title-text">DAILY QUEST: PREPARING TO BECOME STRONG</span>
+          </div>
+
+          <p class="quest-desc">
+            Complete your scheduled daily tasks before the day ends. Failure to complete may invoke the <strong>[Penalty Zone]</strong>.
+          </p>
+
+          <!-- Add Custom Quest Form -->
+          <form id="addQuestForm" class="add-quest-row">
+            <input type="text" id="questInput" placeholder="Add a new custom daily task..." required autocomplete="off">
+            <select id="statAffinity">
+              <option value="str">STR (Workout)</option>
+              <option value="int">INT (Study/Read)</option>
+              <option value="vit">VIT (Health/Sleep)</option>
+              <option value="agi">AGI (Chores/Pacing)</option>
+              <option value="per">PER (Focus/Mind)</option>
+            </select>
+            <button type="submit" class="hud-btn-primary">+ ADD</button>
+          </form>
+
+          <!-- Quest List -->
+          <ul class="quest-list" id="questList">
+            <!-- Dynamically populated via JavaScript -->
+          </ul>
+
+          <!-- Daily Completion Summary -->
+          <div class="quest-progress-summary">
+            <div class="summary-left">
+              <span>Daily Completion:</span>
+              <strong id="dailyPercent">0%</strong>
+            </div>
+            <button id="claimDailyBonusBtn" class="hud-btn-gold" disabled>
+              🎁 CLAIM DAILY REWARD BOX
+            </button>
+          </div>
+        </div>
+
+        <!-- DUNGEON / FOCUS TIMER (POMODORO) -->
+        <div class="hud-card dungeon-card">
+          <div class="card-corner top-left"></div>
+          <div class="card-corner top-right"></div>
+          <div class="card-corner bottom-left"></div>
+          <div class="card-corner bottom-right"></div>
+
+          <div class="card-header">
+            <span class="hud-tag dungeon-tag">[INSTANT DUNGEON]</span>
+            <span class="quest-title-text">DEEP WORK FOCUS CHAMBER</span>
+          </div>
+
+          <div class="dungeon-body">
+            <div class="timer-display" id="timerDisplay">25:00</div>
+            <div class="timer-controls">
+              <button id="timerStartBtn" class="hud-btn-primary">ENTER DUNGEON</button>
+              <button id="timerResetBtn" class="hud-btn-secondary">RESET</button>
+            </div>
+            <p class="dungeon-note">Survive 25 minutes of zero-distraction focus to earn <strong>+40 EXP</strong> and <strong>+1 PER</strong> point!</p>
+          </div>
+        </div>
+
+        <!-- SYSTEM LOGS / NOTIFICATIONS FEED -->
+        <div class="hud-card log-card">
+          <div class="card-header">
+            <span class="hud-tag">[SYSTEM MESSAGES]</span>
+          </div>
+          <div class="system-logs" id="systemLogs">
+            <div class="log-entry system-msg">[SYSTEM] Welcome, Player. Your awakening has been registered.</div>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- LEVEL UP POPUP OVERLAY -->
+  <div class="modal-overlay" id="levelUpModal">
+    <div class="level-up-box">
+      <div class="level-up-glow"></div>
+      <div class="level-up-badge">[ SYSTEM ANNOUNCEMENT ]</div>
+      <h1 class="level-up-title">YOU HAVE LEVELED UP!</h1>
+      <p class="level-up-level">Current Level: <span id="modalNewLevel">2</span></p>
+      <div class="level-up-rewards">
+        <p>✦ HP & MP Fully Restored</p>
+        <p>✦ +5 Free Stat Points Awarded</p>
+        <p>✦ Hunter Aura Intensified</p>
+      </div>
+      <button id="closeLevelUpBtn" class="hud-btn-primary modal-btn">CLAIM & CONTINUE</button>
+    </div>
+  </div>
+
+  <!-- DAILY REWARD LOOT BOX MODAL -->
+  <div class="modal-overlay" id="lootModal">
+    <div class="level-up-box loot-box-modal">
+      <div class="level-up-glow"></div>
+      <div class="level-up-badge">[ BLESSED RANDOM BOX ]</div>
+      <h1 class="level-up-title" style="color: #ffd700;">DAILY QUEST REWARD!</h1>
+      <p id="lootRewardText" style="font-size: 1.15rem; margin: 15px 0; color: #e2f1ff;">
+        Opening the Blessed Random Box...
+      </p>
+      <button id="closeLootBtn" class="hud-btn-gold modal-btn">EQUIP REWARD</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
