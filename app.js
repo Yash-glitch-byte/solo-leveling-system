@@ -583,3 +583,63 @@ DOM.timerResetBtn.addEventListener('click', () => {
 render();
 updateTimerDisplay();
 logMessage('[SYSTEM] Connection established. Player status synced.');
+
+// ==========================================
+// 7. PWA SERVICE WORKER & INSTALL PROMPT
+// ==========================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => {
+      console.log('Service Worker registration note:', err);
+    });
+  });
+}
+
+let deferredPrompt = null;
+const installBtn = document.getElementById('installAppBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (installBtn) {
+    installBtn.style.display = 'inline-flex';
+  }
+});
+
+if (installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        installBtn.style.display = 'none';
+      }
+      deferredPrompt = null;
+    } else {
+      alert("📱 To install this app on your phone:\n\n• Android: Tap the 3 dots (⋮) at top right of Chrome -> choose 'Install app' or 'Add to Home screen'\n\n• iPhone: Tap the Share button in Safari -> choose 'Add to Home Screen'");
+    }
+  });
+}
+
+// ==========================================
+// 8. DAILY QUEST ARRIVAL MODAL (ANIME STYLE)
+// ==========================================
+const questAlertModal = document.getElementById('questAlertModal');
+const acceptQuestBtn = document.getElementById('acceptQuestBtn');
+
+// Show the quest notification modal on fresh open
+setTimeout(() => {
+  if (questAlertModal) {
+    questAlertModal.classList.add('active');
+    sfx.ping();
+  }
+}, 400);
+
+if (acceptQuestBtn) {
+  acceptQuestBtn.addEventListener('click', () => {
+    questAlertModal.classList.remove('active');
+    sfx.questComplete();
+    logMessage('[QUEST ACCEPTED] Daily quest "Preparing to Become Strong" is now active!');
+  });
+}
+

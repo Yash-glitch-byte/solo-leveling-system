@@ -20,8 +20,11 @@
   <div class="system-grid-bg"></div>
   <div class="vignette"></div>
 
-  <!-- Audio Chime Control -->
+  <!-- Audio Chime & Install Controls -->
   <div class="sound-toggle-bar">
+    <button id="installAppBtn" class="hud-mini-btn install-btn" style="display: none;">
+      <span class="icon">📲</span> INSTALL APP
+    </button>
     <button id="soundToggleBtn" class="hud-mini-btn" title="Toggle System Sound FX">
       <span class="icon">🔊</span> SYSTEM AUDIO: <span id="soundStatus">ACTIVE</span>
     </button>
@@ -274,7 +277,22 @@
       <p id="lootRewardText" style="font-size: 1.15rem; margin: 15px 0; color: #e2f1ff;">
         Opening the Blessed Random Box...
       </p>
-      <button id="closeLootBtn" class="hud-btn-gold modal-btn">EQUIP REWARD</button>
+  <!-- INITIAL QUEST NOTIFICATION MODAL -->
+  <div class="modal-overlay" id="questAlertModal">
+    <div class="level-up-box quest-alert-box">
+      <div class="level-up-glow"></div>
+      <div class="level-up-badge">[ SYSTEM NOTIFICATION ]</div>
+      <h1 class="level-up-title" style="color: #00f0ff;">DAILY QUEST ARRIVED!</h1>
+      <p class="level-up-level" style="font-size: 1.1rem; color: #7f9ebc;">[Preparing to Become Strong]</p>
+      <div class="level-up-rewards" style="text-align: left; padding: 18px 24px;">
+        <p>✦ <strong>STR:</strong> Workout & Push-ups (+30 EXP)</p>
+        <p>✦ <strong>INT:</strong> 30 Mins Study or Read (+30 EXP)</p>
+        <p>✦ <strong>VIT:</strong> Drink 2L Water (+20 EXP)</p>
+        <p>✦ <strong>AGI:</strong> Tidy workspace (+20 EXP)</p>
+        <p>✦ <strong>PER:</strong> Meditation & Focus (+25 EXP)</p>
+        <p style="color: #ff3366; margin-top: 10px; font-size: 0.85rem;"><em>⚠️ Incomplete daily quests will accumulate fatigue!</em></p>
+      </div>
+      <button id="acceptQuestBtn" class="hud-btn-primary modal-btn">ACCEPT QUEST</button>
     </div>
   </div>
 

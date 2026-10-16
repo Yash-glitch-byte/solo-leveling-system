@@ -971,3 +971,42 @@ body {
   padding: 12px;
   font-size: 1rem;
 }
+
+/* Install Button */
+.hud-mini-btn.install-btn {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--blue-electric);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+.hud-mini-btn.install-btn:hover {
+  background: var(--blue-electric);
+  color: #030814;
+}
+
+/* Mobile & Touch Screen Optimizations */
+@media (max-width: 600px) {
+  .system-title {
+    font-size: 1.6rem;
+  }
+  .hud-card {
+    padding: 18px 14px;
+  }
+  .timer-display {
+    font-size: 2.8rem;
+  }
+  .quest-checkbox {
+    width: 26px;
+    height: 26px;
+  }
+  .add-stat-btn {
+    width: 32px;
+    height: 32px;
+  }
+  .add-quest-row {
+    flex-direction: column;
+  }
+}
+
