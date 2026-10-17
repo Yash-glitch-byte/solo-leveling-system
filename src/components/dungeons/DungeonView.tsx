@@ -1,0 +1,384 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { DungeonSession, AttributeKey } from '../../types';
+import { soundEngine } from '../../game/sound';
+
+interface DungeonViewProps {
+  dungeonTemplates: DungeonSession[];
+  activeDungeon: DungeonSession | null;
+  onStartDungeon: (session: DungeonSession) => void;
+  onUpdateActiveDungeon: (session: DungeonSession) => void;
+  onCompleteDungeon: (session: DungeonSession) => void;
+  onExitDungeon: () => void;
+}
+
+export const DungeonView: React.FC<DungeonViewProps> = ({
+  dungeonTemplates,
+  activeDungeon,
+  onStartDungeon,
+  onUpdateActiveDungeon,
+  onCompleteDungeon,
+  onExitDungeon
+}) => {
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(dungeonTemplates[0]?.id || '');
+  const [customMinutes, setCustomMinutes] = useState<number>(25);
+  const [customName, setCustomName] = useState<string>('Custom Deep Work Chamber');
+  const [customObjectives, setCustomObjectives] = useState<string>('Complete task block 1\nVerify solution\nReview notes');
+  const [isVictoryModalOpen, setIsVictoryModalOpen] = useState<boolean>(false);
+
+  const timerRef = useRef<number | null>(null);
+
+  // Active Dungeon Timer Hook using timestamp deltas (survives tab suspension)
+  useEffect(() => {
+    if (!activeDungeon || !activeDungeon.isRunning) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
+
+    timerRef.current = window.setInterval(() => {
+      const now = Date.now();
+      const last = activeDungeon.lastUpdatedAt || now;
+      const deltaSec = Math.max(1, Math.floor((now - last) / 1000));
+
+      const newRemaining = Math.max(0, activeDungeon.remainingSeconds - deltaSec);
+      const newElapsed = activeDungeon.elapsedSeconds + deltaSec;
+
+      if (newRemaining <= 0) {
+        // Dungeon Cleared!
+        if (timerRef.current) clearInterval(timerRef.current);
+        soundEngine.playDungeonClear();
+        setIsVictoryModalOpen(true);
+        onUpdateActiveDungeon({
+          ...activeDungeon,
+          isRunning: false,
+          remainingSeconds: 0,
+          elapsedSeconds: newElapsed,
+          cleared: true,
+          lastUpdatedAt: now
+        });
+      } else {
+        onUpdateActiveDungeon({
+          ...activeDungeon,
+          remainingSeconds: newRemaining,
+          elapsedSeconds: newElapsed,
+          lastUpdatedAt: now
+        });
+      }
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [activeDungeon, onUpdateActiveDungeon]);
+
+  const handleLaunchTemplate = (tmpl: DungeonSession) => {
+    soundEngine.playDungeonEnter();
+    const newSession: DungeonSession = {
+      ...tmpl,
+      id: `session-${Date.now()}`,
+      elapsedSeconds: 0,
+      remainingSeconds: tmpl.durationMinutes * 60,
+      isRunning: true,
+      startedAt: Date.now(),
+      lastUpdatedAt: Date.now(),
+      cleared: false,
+      objectives: tmpl.objectives.map(o => ({ ...o, completed: false }))
+    };
+    onStartDungeon(newSession);
+  };
+
+  const handleLaunchCustom = () => {
+    soundEngine.playDungeonEnter();
+    const objectivesList = customObjectives
+      .split('\n')
+      .map(o => o.trim())
+      .filter(o => o.length > 0)
+      .map((text, idx) => ({ id: `co-${idx}`, text, completed: false }));
+
+    const newSession: DungeonSession = {
+      id: `session-${Date.now()}`,
+      name: customName.trim() || 'Custom Focus Chamber',
+      subtitle: 'Zero-distraction deep immersion sprint',
+      category: 'focus' as any,
+      difficulty: 'normal',
+      durationMinutes: customMinutes,
+      elapsedSeconds: 0,
+      remainingSeconds: customMinutes * 60,
+      isRunning: true,
+      startedAt: Date.now(),
+      lastUpdatedAt: Date.now(),
+      objectives: objectivesList,
+      xpReward: Math.round(customMinutes * 1.5),
+      attributeBonus: 'focus',
+      cleared: false
+    };
+    onStartDungeon(newSession);
+  };
+
+  const togglePause = () => {
+    if (!activeDungeon) return;
+    soundEngine.playPing();
+    const nextRunning = !activeDungeon.isRunning;
+    onUpdateActiveDungeon({
+      ...activeDungeon,
+      isRunning: nextRunning,
+      lastUpdatedAt: Date.now()
+    });
+  };
+
+  const toggleObjective = (objId: string) => {
+    if (!activeDungeon) return;
+    soundEngine.playPing();
+    const updated = activeDungeon.objectives.map(o =>
+      o.id === objId ? { ...o, completed: !o.completed } : o
+    );
+    onUpdateActiveDungeon({
+      ...activeDungeon,
+      objectives: updated
+    });
+  };
+
+  const handleClaimVictory = () => {
+    if (!activeDungeon) return;
+    setIsVictoryModalOpen(false);
+    onCompleteDungeon(activeDungeon);
+  };
+
+  const formatTimer = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // If in an active dungeon session, render the dedicated Focus Chamber screen!
+  if (activeDungeon) {
+    const totalSec = activeDungeon.durationMinutes * 60;
+    const progressPct = totalSec > 0 ? Math.min(100, Math.round((activeDungeon.elapsedSeconds / totalSec) * 100)) : 0;
+    const allObjectivesDone = activeDungeon.objectives.length > 0 && activeDungeon.objectives.every(o => o.completed);
+
+    return (
+      <div className="active-dungeon-screen">
+        <div className="dungeon-radar-ring"></div>
+
+        <div className="dungeon-chamber-card hud-card">
+          <div className="card-corner tl" />
+          <div className="card-corner tr" />
+          <div className="card-corner bl" />
+          <div className="card-corner br" />
+
+          {/* Chamber Header */}
+          <div className="chamber-header">
+            <span className="hud-tag dungeon-pulse-tag">● INSTANT DUNGEON ACTIVE</span>
+            <button className="exit-chamber-btn" onClick={onExitDungeon} title="Abandon chamber">
+              EXIT DUNGEON ✕
+            </button>
+          </div>
+
+          <div className="chamber-title-block">
+            <h2 className="chamber-name">{activeDungeon.name}</h2>
+            <p className="chamber-subtitle">{activeDungeon.subtitle}</p>
+          </div>
+
+          {/* Countdown Clock */}
+          <div className="dungeon-timer-ring-container">
+            <div className="timer-digital-display">
+              <span className="digits">{formatTimer(activeDungeon.remainingSeconds)}</span>
+              <span className="timer-status-hint">
+                {activeDungeon.isRunning ? 'FOCUS CHAMBER SEALED' : 'SESSION PAUSED'}
+              </span>
+            </div>
+            <div className="dungeon-progress-bar-wrapper">
+              <div className="dungeon-progress-fill" style={{ width: `${progressPct}%` }} />
+            </div>
+          </div>
+
+          {/* Chamber Controls */}
+          <div className="chamber-controls-row">
+            <button
+              className={`hud-btn-primary ${activeDungeon.isRunning ? 'pause-btn' : 'resume-btn'}`}
+              onClick={togglePause}
+            >
+              {activeDungeon.isRunning ? '⏸ PAUSE FOCUS' : '▶ RESUME FOCUS'}
+            </button>
+
+            <button
+              className="hud-btn-gold finish-early-btn"
+              onClick={() => {
+                soundEngine.playDungeonClear();
+                setIsVictoryModalOpen(true);
+              }}
+            >
+              ✦ COMPLETE DUNGEON NOW
+            </button>
+          </div>
+
+          {/* Real-time Objectives Checklist */}
+          <div className="chamber-objectives-box">
+            <div className="objectives-header">
+              <span className="objectives-title">CHAMBER OBJECTIVES ({activeDungeon.objectives.filter(o => o.completed).length}/{activeDungeon.objectives.length})</span>
+            </div>
+            <div className="chamber-objectives-list">
+              {activeDungeon.objectives.map(obj => (
+                <div
+                  key={obj.id}
+                  className={`chamber-obj-item ${obj.completed ? 'cleared' : ''}`}
+                  onClick={() => toggleObjective(obj.id)}
+                >
+                  <span className="check-box">{obj.completed ? '✓' : '○'}</span>
+                  <span className="obj-text">{obj.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="chamber-reward-preview">
+            <span>REWARDS ON SURVIVAL: <strong>+{activeDungeon.xpReward} EXP</strong> & <strong>+2 FOCUS ATTRIBUTE</strong></span>
+          </div>
+        </div>
+
+        {/* VICTORY CEREMONY MODAL */}
+        {isVictoryModalOpen && (
+          <div className="modal-backdrop">
+            <div className="hud-card dungeon-victory-modal">
+              <div className="card-corner tl" />
+              <div className="card-corner tr" />
+              <div className="card-corner bl" />
+              <div className="card-corner br" />
+
+              <div className="victory-badge">[ DUNGEON CLEARED ]</div>
+              <h1 className="victory-title">CHAMBER CONQUERED!</h1>
+              <p className="victory-desc">
+                You maintained intense focus for <strong>{Math.floor(activeDungeon.elapsedSeconds / 60)} minutes</strong> without succumbing to distraction.
+              </p>
+
+              <div className="victory-rewards-list">
+                <div className="reward-item">
+                  <span className="reward-icon">✦</span>
+                  <span>+{activeDungeon.xpReward} Hunter Experience (EXP)</span>
+                </div>
+                <div className="reward-item">
+                  <span className="reward-icon">✦</span>
+                  <span>+2 Permanent Focus (FOC) Attribute Points</span>
+                </div>
+                <div className="reward-item">
+                  <span className="reward-icon">✦</span>
+                  <span>-20% Fatigue Relief Bonus</span>
+                </div>
+              </div>
+
+              <button className="hud-btn-primary claim-reward-btn" onClick={handleClaimVictory}>
+                CLAIM REWARDS & EXIT CHAMBER
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Dungeon Selection & Launch Portal Screen
+  return (
+    <div className="dungeon-hub-container">
+      <div className="dungeon-hub-header">
+        <div>
+          <span className="hud-tag">[FOCUS GATE PROTOCOL]</span>
+          <h2 className="section-title">INSTANT DUNGEONS (FOCUS CHAMBER)</h2>
+        </div>
+        <p className="dungeon-hub-desc">
+          Seal your focus into high-stakes timed chambers. Completing sessions earns bonus Hunter EXP, trains your Focus & Discipline attributes, and accelerates campaign velocity.
+        </p>
+      </div>
+
+      {/* Preset Dungeon Templates */}
+      <h3 className="section-subheading">AVAILABLE DUNGEON GATES</h3>
+      <div className="dungeon-templates-grid">
+        {dungeonTemplates.map(tmpl => (
+          <div key={tmpl.id} className="hud-card dungeon-gate-card">
+            <div className="card-corner tl" />
+            <div className="card-corner tr" />
+            <div className="card-corner bl" />
+            <div className="card-corner br" />
+
+            <div className="gate-card-header">
+              <span className="gate-diff-badge diff-{tmpl.difficulty}">{tmpl.difficulty.toUpperCase()} GATE</span>
+              <span className="gate-time">{tmpl.durationMinutes} MINS</span>
+            </div>
+
+            <h4 className="gate-name">{tmpl.name}</h4>
+            <p className="gate-desc">{tmpl.subtitle}</p>
+
+            <div className="gate-objectives-preview">
+              <span className="preview-label">OBJECTIVES:</span>
+              <ul>
+                {tmpl.objectives.slice(0, 3).map(o => (
+                  <li key={o.id}>{o.text}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="gate-card-footer">
+              <span className="gate-reward-text">+{tmpl.xpReward} EXP • +{tmpl.attributeBonus.toUpperCase()}</span>
+              <button
+                className="hud-btn-primary enter-gate-btn"
+                onClick={() => handleLaunchTemplate(tmpl)}
+              >
+                ENTER GATE →
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Custom Dungeon Forge */}
+      <div className="hud-card custom-dungeon-card">
+        <div className="card-corner tl" />
+        <div className="card-corner tr" />
+        <div className="card-corner bl" />
+        <div className="card-corner br" />
+
+        <div className="custom-gate-header">
+          <span className="hud-tag">[CUSTOM GATE FORGE]</span>
+          <h3>CREATE CUSTOM FOCUS CHAMBER</h3>
+        </div>
+
+        <div className="custom-dungeon-grid">
+          <div className="form-group">
+            <label>Chamber Name</label>
+            <input
+              type="text"
+              value={customName}
+              onChange={e => setCustomName(e.target.value)}
+              className="hud-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Duration: {customMinutes} Minutes</label>
+            <input
+              type="range"
+              min={15}
+              max={120}
+              step={5}
+              value={customMinutes}
+              onChange={e => setCustomMinutes(Number(e.target.value))}
+              className="hud-slider"
+            />
+          </div>
+
+          <div className="form-group full-width">
+            <label>Session Objectives (One per line)</label>
+            <textarea
+              rows={3}
+              value={customObjectives}
+              onChange={e => setCustomObjectives(e.target.value)}
+              className="hud-textarea"
+            />
+          </div>
+        </div>
+
+        <button className="hud-btn-primary launch-custom-btn" onClick={handleLaunchCustom}>
+          ✦ INITIALIZE CUSTOM DUNGEON SPRINT ✦
+        </button>
+      </div>
+    </div>
+  );
+};
