@@ -1,5 +1,5 @@
-// Service Worker for Solo Leveling PWA
-const CACHE_NAME = 'solo-leveling-v1';
+// Service Worker for Solo Leveling PWA v2.0
+const CACHE_NAME = 'solo-leveling-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
