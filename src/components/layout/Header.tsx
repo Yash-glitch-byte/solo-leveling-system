@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlayerProfile, GameSettings, CloudSyncStatus } from '../../types';
 import { soundEngine } from '../../game/sound';
+import { notificationEngine } from '../../game/notificationSystem';
 
 interface HeaderProps {
   player: PlayerProfile;
@@ -32,6 +33,9 @@ export const Header: React.FC<HeaderProps> = ({
   canInstall
 }) => {
   const [ambientActive, setAmbientActive] = useState<boolean>(false);
+  const [notifGranted, setNotifGranted] = useState<boolean>(() => {
+    return notificationEngine.getPermissionStatus() === 'granted';
+  });
 
   const toggleSoundFx = () => {
     const nextVal = !settings.soundFxEnabled;
@@ -176,6 +180,29 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Toggle Ambient Focus Sound"
           >
             {ambientActive ? '🧘 AMBIENT ON' : '🧘 AMBIENT OFF'}
+          </button>
+
+          <button
+            className={`hud-icon-btn notif-btn ${notifGranted ? 'active' : ''}`}
+            onClick={async () => {
+              soundEngine.playPing();
+              const granted = await notificationEngine.requestPermission();
+              setNotifGranted(granted);
+              if (granted) {
+                soundEngine.playLevelUp();
+                alert('✓ System Alerts Active! Biological reminders (drinking water every 45 mins) and daily task alerts are synchronized.');
+              } else {
+                alert('Notification permission was not enabled. Check browser permission settings if you wish to enable alerts.');
+              }
+            }}
+            title={notifGranted ? 'System Alerts & Hydration: ACTIVE' : 'Enable System Push Notifications & Hydration Reminders'}
+            aria-label="Toggle Notifications"
+            style={{
+              borderColor: notifGranted ? '#10b981' : 'rgba(0, 210, 255, 0.4)',
+              color: notifGranted ? '#34d399' : '#7f9ebc'
+            }}
+          >
+            {notifGranted ? '🔔 ALERTS ON' : '🔔 ALERTS'}
           </button>
 
           <button

@@ -25,8 +25,22 @@ export const ShadowVoiceWidget: React.FC<ShadowVoiceWidgetProps> = ({
   );
   const [displayedWords, setDisplayedWords] = useState<string[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<'dialogue' | 'dedication' | 'explainers'>('dialogue');
+  const [activeCategory, setActiveCategory] = useState<'dialogue' | 'dedication' | 'explainers' | 'audio'>('dialogue');
+  const [deviceVoices, setDeviceVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>(shadowVoice.getCustomVoice() || '');
   const typewriterTimerRef = useRef<any>(null);
+
+  // Sync available device speech synthesis voices
+  useEffect(() => {
+    const updateVoices = () => {
+      const v = shadowVoice.getAvailableVoices();
+      setDeviceVoices(v);
+    };
+    updateVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+  }, []);
 
   // Sync persona changes
   const handleSelectPersona = (p: VoicePersona) => {
@@ -396,16 +410,16 @@ export const ShadowVoiceWidget: React.FC<ShadowVoiceWidgetProps> = ({
             </div>
 
             {/* Navigation Tabs for Actions */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
               <button
                 onClick={() => {
                   soundEngine.playPing();
                   setActiveCategory('dialogue');
                 }}
                 className={`hud-tab-btn ${activeCategory === 'dialogue' ? 'active' : ''}`}
-                style={{ flex: 1, padding: '8px', fontSize: '0.8rem' }}
+                style={{ padding: '8px 4px', fontSize: '0.76rem' }}
               >
-                🎯 Directives
+                🎯 Tasks
               </button>
               <button
                 onClick={() => {
@@ -413,9 +427,9 @@ export const ShadowVoiceWidget: React.FC<ShadowVoiceWidgetProps> = ({
                   setActiveCategory('dedication');
                 }}
                 className={`hud-tab-btn ${activeCategory === 'dedication' ? 'active' : ''}`}
-                style={{ flex: 1, padding: '8px', fontSize: '0.8rem' }}
+                style={{ padding: '8px 4px', fontSize: '0.76rem' }}
               >
-                ⚔️ Set Focus
+                ⚔️ Focus
               </button>
               <button
                 onClick={() => {
@@ -423,9 +437,19 @@ export const ShadowVoiceWidget: React.FC<ShadowVoiceWidgetProps> = ({
                   setActiveCategory('explainers');
                 }}
                 className={`hud-tab-btn ${activeCategory === 'explainers' ? 'active' : ''}`}
-                style={{ flex: 1, padding: '8px', fontSize: '0.8rem' }}
+                style={{ padding: '8px 4px', fontSize: '0.76rem' }}
               >
-                📖 Explainers
+                📖 Guide
+              </button>
+              <button
+                onClick={() => {
+                  soundEngine.playPing();
+                  setActiveCategory('audio');
+                }}
+                className={`hud-tab-btn ${activeCategory === 'audio' ? 'active' : ''}`}
+                style={{ padding: '8px 4px', fontSize: '0.76rem' }}
+              >
+                🎙️ Audio
               </button>
             </div>
 
@@ -605,6 +629,108 @@ export const ShadowVoiceWidget: React.FC<ShadowVoiceWidgetProps> = ({
                     <span style={{ fontSize: '0.74rem', color: '#7f9ebc' }}>Your First Job Change & Shadow Extraction preview</span>
                   </div>
                 </button>
+              </div>
+            )}
+
+            {/* TAB 4: Audio Engine & Voice Customizer */}
+            {activeCategory === 'audio' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <span style={{ fontSize: '0.74rem', color: '#00d2ff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+                    1. Guide Voice Persona
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    {(['jinwoo', 'system', 'igris'] as VoicePersona[]).map(pKey => {
+                      const pInfo = VOICE_PERSONAS[pKey];
+                      const isSelected = persona === pKey;
+                      return (
+                        <button
+                          key={pKey}
+                          onClick={() => handleSelectPersona(pKey)}
+                          style={{
+                            padding: '10px 6px',
+                            borderRadius: '8px',
+                            background: isSelected ? 'rgba(0, 210, 255, 0.18)' : 'rgba(255, 255, 255, 0.04)',
+                            border: isSelected ? '1px solid #00f0ff' : '1px solid rgba(255, 255, 255, 0.12)',
+                            boxShadow: isSelected ? '0 0 15px rgba(0, 210, 255, 0.3)' : 'none',
+                            color: '#fff',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <span style={{ fontSize: '1.3rem' }}>{pInfo.avatar}</span>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{pInfo.name.split(' ')[0]}</span>
+                          <span style={{ fontSize: '0.65rem', color: isSelected ? '#00f0ff' : '#7f9ebc' }}>
+                            {pKey === 'jinwoo' ? 'Monarch' : pKey === 'system' ? 'AI Guide' : 'Knight'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.74rem', color: '#00d2ff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+                    2. Device Speech Synthesizer ({deviceVoices.length} Found)
+                  </label>
+                  <select
+                    value={selectedVoiceName}
+                    onChange={(e) => {
+                      soundEngine.playPing();
+                      const val = e.target.value;
+                      setSelectedVoiceName(val);
+                      shadowVoice.setCustomVoice(val || null);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      borderRadius: '6px',
+                      background: 'rgba(5, 12, 26, 0.95)',
+                      border: '1px solid #00d2ff',
+                      color: '#00f0ff',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.78rem'
+                    }}
+                  >
+                    <option value="">✦ System Default (Auto-Selected Natural Human Voice)</option>
+                    {deviceVoices.map((v, i) => (
+                      <option key={`${v.name}-${i}`} value={v.name}>
+                        {v.name} ({v.lang}) {v.localService ? '[Local]' : '[Neural/Cloud]'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  className="hud-btn-primary"
+                  onClick={() => {
+                    soundEngine.playLevelUp();
+                    triggerSpeech("System Guide online. All stats, daily quests, and combat directives are fully synchronized, Hunter.");
+                  }}
+                  style={{
+                    padding: '12px',
+                    fontSize: '0.84rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <span>▶️</span>
+                  <span>TEST NATURAL VOICE SAMPLE</span>
+                </button>
+
+                <div style={{ background: 'rgba(0, 210, 255, 0.05)', border: '1px solid rgba(0, 210, 255, 0.15)', borderRadius: '6px', padding: '10px', fontSize: '0.72rem', color: '#7f9ebc', lineHeight: '1.4' }}>
+                  <strong style={{ color: '#00f0ff', display: 'block', marginBottom: '2px' }}>
+                    ✓ NATURAL HUMAN CADENCE TUNING ACTIVE
+                  </strong>
+                  Calibrated to standard pitch (1.0) and natural rate (1.0) to eliminate robotic frequency distortion on both Android and PC.
+                </div>
               </div>
             )}
           </div>

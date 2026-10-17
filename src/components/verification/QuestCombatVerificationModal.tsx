@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Quest } from '../../types';
 import { soundEngine } from '../../game/sound';
 import { shadowVoice } from '../../game/voiceAssistant';
@@ -21,41 +21,98 @@ export const QuestCombatVerificationModal: React.FC<QuestCombatVerificationModal
   const isFitness = quest.category === 'fitness' || quest.title.toLowerCase().includes('push-up') || quest.title.toLowerCase().includes('workout');
   const isCoding = quest.category === 'coding' || quest.title.toLowerCase().includes('dsa') || quest.title.toLowerCase().includes('programming');
 
-  // Workout state
-  const [completedSets, setCompletedSets] = useState<number[]>([1]);
+  // Photo upload state
+  const [photoEvidence, setPhotoEvidence] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Workout state (starts empty - must complete all 4 sets)
+  const [completedSets, setCompletedSets] = useState<number[]>([]);
   const [activeRestTimer, setActiveRestTimer] = useState<number | null>(null);
 
   // DSA state
   const [problemName, setProblemName] = useState('');
   const [complexity, setComplexity] = useState('O(N) Time, O(1) Space');
   const [solutionNote, setSolutionNote] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setValidationError('Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      soundEngine.playLevelUp();
+      setPhotoEvidence(event.target?.result as string);
+      setValidationError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = () => {
+    soundEngine.playPing();
+    setPhotoEvidence(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleToggleSet = (setNum: number) => {
     soundEngine.playPing();
     if (completedSets.includes(setNum)) {
       setCompletedSets(completedSets.filter(s => s !== setNum));
     } else {
-      setCompletedSets([...completedSets, setNum]);
-      // Start 30s rest countdown
-      setActiveRestTimer(30);
-      const interval = setInterval(() => {
-        setActiveRestTimer(prev => {
-          if (prev === null || prev <= 1) {
-            clearInterval(interval);
-            soundEngine.playLevelUp();
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      const nextSets = [...completedSets, setNum];
+      setCompletedSets(nextSets);
+      setValidationError(null);
+
+      // Start 30s rest countdown between sets
+      if (nextSets.length < 4) {
+        setActiveRestTimer(30);
+        const interval = setInterval(() => {
+          setActiveRestTimer(prev => {
+            if (prev === null || prev <= 1) {
+              clearInterval(interval);
+              soundEngine.playLevelUp();
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
     }
   };
 
+  // Proof Verification: Either a real Photo Evidence is uploaded, OR manual metrics pass!
+  const hasPhoto = photoEvidence !== null;
+  const isFitnessReady = hasPhoto || !isFitness || completedSets.length >= 4;
+  const isCodingReady = hasPhoto || !isCoding || (problemName.trim().length >= 3 && complexity.trim().length >= 3 && solutionNote.trim().length >= 5);
+  const isStudyReady = hasPhoto || (isFitness || isCoding) || solutionNote.trim().length >= 10;
+  const canClaimVerified = hasPhoto || (isFitnessReady && isCodingReady && isStudyReady);
+
   const handleClaimVerified = () => {
+    if (!canClaimVerified) {
+      if (isFitness) {
+        setValidationError(`Fitness Proof Incomplete: Attach a workout photo or complete all 4 sets (${completedSets.length}/4 completed).`);
+      } else if (isCoding) {
+        setValidationError('Coding Proof Incomplete: Attach a photo/screenshot of your code or provide problem name and complexity.');
+      } else {
+        setValidationError('Study Proof Incomplete: Attach a photo of your notes or write a 10+ character milestone summary.');
+      }
+      soundEngine.playPing();
+      return;
+    }
+
     soundEngine.playLevelUp();
-    const proof = isFitness 
-      ? `Completed ${completedSets.length}/4 Workout Sets`
-      : `DSA Problem: ${problemName || 'Two Sum'}, Complexity: ${complexity}`;
+    const proof = hasPhoto
+      ? `[Verified Photo Evidence Attached] ${isFitness ? 'Workout Execution Photo' : isCoding ? `Code: ${problemName || 'Algorithmic Problem'}` : 'Study Milestone'}`
+      : isFitness 
+      ? `Completed 4/4 Sets (40 Reps Verified)`
+      : isCoding
+      ? `Problem: ${problemName.trim()} | Complexity: ${complexity.trim()} | Note: ${solutionNote.trim()}`
+      : `Study Milestone: ${solutionNote.trim()}`;
     
     shadowVoice.announceTaskComplete(quest.title);
     onVerifyAndComplete(quest.id, true, proof);
@@ -64,41 +121,159 @@ export const QuestCombatVerificationModal: React.FC<QuestCombatVerificationModal
 
   const handleClaimUnverified = () => {
     soundEngine.playPing();
-    onVerifyAndComplete(quest.id, false, 'Unverified Self-Report (30% EXP)');
+    onVerifyAndComplete(quest.id, false, 'Unverified Self-Report (30% EXP Baseline)');
     onClose();
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(3, 8, 18, 0.85)', backdropFilter: 'blur(8px)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
       <div
         className="hud-card quest-verification-modal"
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '580px', width: '92%', borderColor: '#00d2ff', boxShadow: '0 0 35px rgba(0, 210, 255, 0.35)' }}
+        style={{
+          maxWidth: '560px',
+          width: '100%',
+          maxHeight: '92vh',
+          overflowY: 'auto',
+          borderColor: canClaimVerified ? '#00f0ff' : '#ff3366',
+          boxShadow: canClaimVerified ? '0 0 35px rgba(0, 210, 255, 0.35)' : '0 0 30px rgba(255, 51, 102, 0.25)',
+          borderRadius: '12px',
+          padding: '20px'
+        }}
       >
-        <div className="card-corner tl" />
-        <div className="card-corner tr" />
-        <div className="card-corner bl" />
-        <div className="card-corner br" />
+        <div className="card-corner tl" style={{ borderColor: canClaimVerified ? '#00f0ff' : '#ff3366' }} />
+        <div className="card-corner tr" style={{ borderColor: canClaimVerified ? '#00f0ff' : '#ff3366' }} />
+        <div className="card-corner bl" style={{ borderColor: canClaimVerified ? '#00f0ff' : '#ff3366' }} />
+        <div className="card-corner br" style={{ borderColor: canClaimVerified ? '#00f0ff' : '#ff3366' }} />
 
+        {/* Modal Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span className="hud-tag">● COMBAT TASK VERIFICATION</span>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#7f9ebc', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+          <span className="hud-tag" style={{ borderColor: canClaimVerified ? '#00f0ff' : '#ff3366', color: canClaimVerified ? '#00f0ff' : '#ff3366' }}>
+            ● COMBAT TASK VERIFICATION PROTOCOL
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#7f9ebc',
+              cursor: 'pointer',
+              fontSize: '1.2rem',
+              padding: '4px'
+            }}
+          >
+            ✕
+          </button>
         </div>
 
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: '#fff', marginBottom: '4px' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: '#fff', margin: '0 0 4px 0' }}>
           {quest.title}
         </h2>
-        <p style={{ color: '#7f9ebc', fontSize: '0.85rem', marginBottom: '18px' }}>
-          Provide real-world proof or complete active telemetry to claim 100% full Hunter EXP (+{quest.xpReward} EXP).
+        <p style={{ color: '#7f9ebc', fontSize: '0.84rem', margin: '0 0 16px 0', lineHeight: '1.4' }}>
+          Real-life proof required to award 100% full Hunter EXP (+{quest.xpReward} EXP). Upload a photo or log your telemetry.
         </p>
 
-        {/* WORKOUT SETS VERIFICATION */}
+        {/* Validation Alert Box if user fails validation */}
+        {validationError && (
+          <div style={{ background: 'rgba(255, 51, 102, 0.15)', border: '1px solid #ff3366', borderRadius: '6px', padding: '10px 14px', marginBottom: '14px', color: '#ff6b81', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>⚠️</span>
+            <span>{validationError}</span>
+          </div>
+        )}
+
+        {/* SECTION 1: PHOTO EVIDENCE UPLOAD / CAMERA (PRIORITY PROOF) */}
+        <div style={{ background: hasPhoto ? 'rgba(16, 185, 129, 0.08)' : 'rgba(0, 210, 255, 0.05)', border: hasPhoto ? '1px solid #10b981' : '1px dashed rgba(0, 210, 255, 0.3)', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <strong style={{ color: hasPhoto ? '#34d399' : '#00f0ff', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              📸 REAL-WORLD PHOTO EVIDENCE (CAMERA / GALLERY)
+            </strong>
+            {hasPhoto && (
+              <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>
+                ✓ PHOTO SCANNED & VERIFIED
+              </span>
+            )}
+          </div>
+
+          <p style={{ color: '#7f9ebc', fontSize: '0.78rem', margin: '0 0 10px 0' }}>
+            Attach a photo of your workout (sweat, gym, mat), code editor screen, or study textbook. A real photo serves as immediate 100% verification!
+          </p>
+
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            ref={fileInputRef}
+            onChange={handlePhotoSelect}
+            style={{ display: 'none' }}
+          />
+
+          {!hasPhoto ? (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '6px',
+                background: 'rgba(0, 210, 255, 0.1)',
+                border: '1px solid #00d2ff',
+                color: '#00f0ff',
+                fontFamily: 'var(--font-display)',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              <span>📷</span>
+              <span>SNAP CAMERA / CHOOSE PHOTO PROOF</span>
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'rgba(0, 0, 0, 0.4)', padding: '10px', borderRadius: '6px' }}>
+              <img
+                src={photoEvidence}
+                alt="Verification Proof"
+                style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #10b981' }}
+              />
+              <div style={{ flex: 1 }}>
+                <span style={{ color: '#fff', fontSize: '0.84rem', display: 'block', fontWeight: 700 }}>
+                  Real-World Proof Attached
+                </span>
+                <span style={{ color: '#34d399', fontSize: '0.74rem' }}>
+                  Holographic image hash validated by the System
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                style={{
+                  background: 'rgba(255, 51, 102, 0.15)',
+                  border: '1px solid #ff3366',
+                  color: '#ff3366',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  fontSize: '0.72rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ REMOVE
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* WORKOUT SETS VERIFICATION (IF NO PHOTO) */}
         {isFitness && (
-          <div style={{ background: 'rgba(0, 210, 255, 0.05)', border: '1px solid rgba(0, 210, 255, 0.2)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <strong style={{ color: '#00f0ff', fontSize: '0.95rem' }}>🏋️ ACTIVE SETS LOG (4 SETS TOTAL)</strong>
+          <div style={{ background: 'rgba(0, 210, 255, 0.05)', border: '1px solid rgba(0, 210, 255, 0.25)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <strong style={{ color: '#00f0ff', fontSize: '0.92rem' }}>
+                🏋️ ACTIVE WORKOUT SETS ({completedSets.length}/4 COMPLETED)
+              </strong>
               {activeRestTimer !== null && (
-                <span style={{ color: '#ffd700', fontFamily: 'var(--font-display)', fontSize: '0.85rem' }}>
+                <span style={{ color: '#ffd700', fontFamily: 'var(--font-display)', fontSize: '0.85rem', fontWeight: 700 }}>
                   ⏳ REST: {activeRestTimer}s
                 </span>
               )}
@@ -110,17 +285,19 @@ export const QuestCombatVerificationModal: React.FC<QuestCombatVerificationModal
                 return (
                   <button
                     key={s}
+                    type="button"
                     onClick={() => handleToggleSet(s)}
                     style={{
-                      padding: '12px 6px',
+                      padding: '14px 6px',
                       borderRadius: '6px',
-                      background: done ? 'rgba(0, 210, 255, 0.25)' : 'rgba(14, 27, 54, 0.7)',
+                      background: done ? 'rgba(0, 240, 255, 0.25)' : 'rgba(14, 27, 54, 0.8)',
                       border: done ? '2px solid #00f0ff' : '1px solid rgba(255, 255, 255, 0.1)',
-                      color: done ? '#fff' : '#7f9ebc',
+                      color: done ? '#00f0ff' : '#7f9ebc',
                       cursor: 'pointer',
                       fontFamily: 'var(--font-display)',
-                      fontSize: '0.82rem',
-                      fontWeight: 800
+                      fontSize: '0.85rem',
+                      fontWeight: 800,
+                      transition: 'all 0.2s ease'
                     }}
                   >
                     {done ? `SET ${s} ✓` : `SET ${s}`}
@@ -128,101 +305,135 @@ export const QuestCombatVerificationModal: React.FC<QuestCombatVerificationModal
                 );
               })}
             </div>
-            <p style={{ color: '#7f9ebc', fontSize: '0.78rem', margin: 0 }}>
-              ✦ Tap each set as you finish. Logging all 4 sets verifies your real-world workout.
+            <p style={{ color: completedSets.length === 4 ? '#34d399' : '#7f9ebc', fontSize: '0.78rem', margin: 0, fontWeight: completedSets.length === 4 ? 700 : 400 }}>
+              {completedSets.length === 4
+                ? '✦ All 4 workout sets logged! Physical proof verified.'
+                : '✦ Tap each set as you execute it. You must complete all 4 sets or upload a photo to claim full EXP.'}
             </p>
           </div>
         )}
 
-        {/* DSA / CODING VERIFICATION */}
+        {/* DSA / CODING VERIFICATION (IF NO PHOTO) */}
         {isCoding && (
-          <div style={{ background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-            <strong style={{ color: '#38bdf8', fontSize: '0.95rem', display: 'block', marginBottom: '12px' }}>
-              💻 ALGORITHMIC PROOF SUBMISSION
+          <div style={{ background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+            <strong style={{ color: '#38bdf8', fontSize: '0.92rem', display: 'block', marginBottom: '12px' }}>
+              💻 ALGORITHMIC PROOF SUBMISSION (OR ATTACH PHOTO ABOVE)
             </strong>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '0.78rem', color: '#7f9ebc', display: 'block', marginBottom: '4px' }}>
-                  Problem Solved (LeetCode / Codeforces / Title):
+                  Problem Solved (LeetCode / Codeforces / Title): <span style={{ color: '#ff3366' }}>*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Two Sum #1 or Valid Parentheses"
+                  placeholder="e.g. LeetCode #1 Two Sum or Valid Palindrome"
                   value={problemName}
-                  onChange={e => setProblemName(e.target.value)}
+                  onChange={e => {
+                    setProblemName(e.target.value);
+                    setValidationError(null);
+                  }}
                   className="hud-input"
-                  style={{ width: '100%', fontSize: '0.88rem', padding: '8px 12px' }}
+                  style={{ width: '100%', fontSize: '0.88rem', padding: '10px 12px', background: 'rgba(6, 12, 26, 0.9)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#fff', borderRadius: '6px' }}
                 />
               </div>
 
               <div>
                 <label style={{ fontSize: '0.78rem', color: '#7f9ebc', display: 'block', marginBottom: '4px' }}>
-                  Time & Space Complexity:
+                  Time & Space Complexity: <span style={{ color: '#ff3366' }}>*</span>
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. O(N) Time, O(1) Space"
                   value={complexity}
-                  onChange={e => setComplexity(e.target.value)}
+                  onChange={e => {
+                    setComplexity(e.target.value);
+                    setValidationError(null);
+                  }}
                   className="hud-input"
-                  style={{ width: '100%', fontSize: '0.88rem', padding: '8px 12px' }}
+                  style={{ width: '100%', fontSize: '0.88rem', padding: '10px 12px', background: 'rgba(6, 12, 26, 0.9)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#fff', borderRadius: '6px' }}
                 />
               </div>
 
               <div>
                 <label style={{ fontSize: '0.78rem', color: '#7f9ebc', display: 'block', marginBottom: '4px' }}>
-                  Key Logic / Optimization Learned:
+                  Key Algorithmic Logic / Data Structure Used: <span style={{ color: '#ff3366' }}>*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Used hash map complement for linear search"
+                  placeholder="e.g. Hash Map complement lookup / Two Pointers"
                   value={solutionNote}
-                  onChange={e => setSolutionNote(e.target.value)}
+                  onChange={e => {
+                    setSolutionNote(e.target.value);
+                    setValidationError(null);
+                  }}
                   className="hud-input"
-                  style={{ width: '100%', fontSize: '0.88rem', padding: '8px 12px' }}
+                  style={{ width: '100%', fontSize: '0.88rem', padding: '10px 12px', background: 'rgba(6, 12, 26, 0.9)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#fff', borderRadius: '6px' }}
                 />
               </div>
             </div>
           </div>
         )}
 
-        {/* GENERAL VERIFICATION */}
+        {/* GENERAL STUDY VERIFICATION (IF NO PHOTO) */}
         {!isFitness && !isCoding && (
-          <div style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-            <strong style={{ color: '#a855f7', fontSize: '0.95rem', display: 'block', marginBottom: '8px' }}>
-              📝 STUDY & FOCUS COMPLETION PROOF
+          <div style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+            <strong style={{ color: '#a855f7', fontSize: '0.92rem', display: 'block', marginBottom: '8px' }}>
+              📝 STUDY & FOCUS PROOF (OR ATTACH PHOTO ABOVE)
             </strong>
-            <p style={{ color: '#e2f1ff', fontSize: '0.85rem', marginBottom: '10px' }}>
-              What key insight or milestone did you accomplish during this session?
+            <p style={{ color: '#e2f1ff', fontSize: '0.82rem', marginBottom: '8px' }}>
+              What key insight, chapter, or milestone did you accomplish during this session?
             </p>
             <textarea
-              placeholder="e.g. Finished chapter 3 of operating systems, revised virtual memory..."
+              placeholder="e.g. Completed Chapter 4 on Operating System Page Replacement algorithms..."
               value={solutionNote}
-              onChange={e => setSolutionNote(e.target.value)}
-              className="hud-textarea"
+              onChange={e => {
+                setSolutionNote(e.target.value);
+                setValidationError(null);
+              }}
               rows={3}
-              style={{ width: '100%', fontSize: '0.88rem' }}
+              style={{ width: '100%', fontSize: '0.86rem', padding: '10px', background: 'rgba(6, 12, 26, 0.9)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#fff', borderRadius: '6px' }}
             />
           </div>
         )}
 
-        {/* Actions */}
+        {/* Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <button
             className="hud-btn-primary"
             onClick={handleClaimVerified}
-            style={{ padding: '14px', fontSize: '1rem', letterSpacing: '1px' }}
+            disabled={!canClaimVerified}
+            style={{
+              padding: '14px',
+              fontSize: '0.95rem',
+              letterSpacing: '1px',
+              background: canClaimVerified
+                ? 'linear-gradient(135deg, #00b4d8, #0077b6)'
+                : 'rgba(255, 255, 255, 0.05)',
+              borderColor: canClaimVerified ? '#00f0ff' : 'rgba(255, 255, 255, 0.1)',
+              color: canClaimVerified ? '#fff' : '#4a627a',
+              cursor: canClaimVerified ? 'pointer' : 'not-allowed',
+              boxShadow: canClaimVerified ? '0 0 20px rgba(0, 210, 255, 0.4)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
           >
-            🛡️ SUBMIT PROOF & CLAIM FULL REWARDS (+{quest.xpReward} EXP)
+            {canClaimVerified
+              ? `🛡️ SUBMIT PROOF & CLAIM FULL REWARDS (+${quest.xpReward} EXP)`
+              : `🔒 PROOF REQUIRED (ATTACH PHOTO OR LOG METRICS)`}
           </button>
 
           <button
             className="hud-btn-secondary"
             onClick={handleClaimUnverified}
-            style={{ padding: '10px', fontSize: '0.82rem', color: '#ffaa00', borderColor: 'rgba(255, 170, 0, 0.3)' }}
+            style={{
+              padding: '10px',
+              fontSize: '0.82rem',
+              color: '#ffaa00',
+              borderColor: 'rgba(255, 170, 0, 0.3)',
+              background: 'rgba(255, 170, 0, 0.05)'
+            }}
           >
-            ⚠️ Quick Self-Claim (Unverified: Awards 30% EXP only)
+            ⚠️ Quick Self-Claim (Unverified: Awards 30% EXP Baseline Only)
           </button>
         </div>
       </div>

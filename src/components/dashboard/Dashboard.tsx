@@ -14,6 +14,7 @@ interface DashboardProps {
   onToggleQuest: (questId: string) => void;
   onEnterDungeon: () => void;
   onOpenCreateQuest: () => void;
+  onOpenEditProfile: () => void;
   setActiveTab: (tab: string) => void;
 }
 
@@ -37,6 +38,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onToggleQuest,
   onEnterDungeon,
   onOpenCreateQuest,
+  onOpenEditProfile,
   setActiveTab
 }) => {
   const dailyQuests = quests.filter(q => q.isDaily);
@@ -69,16 +71,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           <div className="profile-header">
             <span className="hud-tag">STATUS WINDOW</span>
-            <span className="hunter-rank-badge">{player.rank}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                className="edit-profile-btn"
+                onClick={onOpenEditProfile}
+                title="Edit your Hunter name, title & avatar"
+                style={{
+                  background: 'rgba(0, 210, 255, 0.12)',
+                  border: '1px solid rgba(0, 210, 255, 0.4)',
+                  color: '#00f0ff',
+                  borderRadius: '4px',
+                  padding: '3px 8px',
+                  fontSize: '0.74rem',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                ✏️ EDIT IDENTITY
+              </button>
+              <span className="hunter-rank-badge">{player.rank}</span>
+            </div>
           </div>
 
-          <div className="profile-identity-row">
+          <div
+            className="profile-identity-row"
+            onClick={onOpenEditProfile}
+            style={{ cursor: 'pointer' }}
+            title="Click to edit your Hunter Name and Title"
+          >
             <div className="avatar-frame">
               <span className="avatar-icon">{player.avatarIcon}</span>
               <div className="avatar-ring-glow"></div>
             </div>
             <div className="identity-details">
-              <h2 className="player-display-name">{player.name}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 className="player-display-name" style={{ margin: 0 }}>{player.name}</h2>
+                <span style={{ fontSize: '0.78rem', color: '#00d2ff' }}>✏️</span>
+              </div>
               <span className="player-title">“{player.title}”</span>
               <span className="player-job">{player.job}</span>
             </div>

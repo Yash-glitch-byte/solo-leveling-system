@@ -18,9 +18,9 @@ export const VOICE_PERSONAS: Record<VoicePersona, VoicePersonaInfo> = {
     name: 'Sung Jin-woo',
     title: 'The Reawakened Monarch',
     avatar: '⚡',
-    description: 'Calm, focused, and determined human hunter voice.',
+    description: 'Calm, focused, and fluent human hunter voice.',
     pitch: 1.0,
-    rate: 0.98
+    rate: 1.0
   },
   system: {
     id: 'system',
@@ -28,7 +28,7 @@ export const VOICE_PERSONAS: Record<VoicePersona, VoicePersonaInfo> = {
     title: 'Architect Guide Protocol',
     avatar: '🔮',
     description: 'Clear, smooth, futuristic holographic guide voice.',
-    pitch: 1.04,
+    pitch: 1.0,
     rate: 1.0
   },
   igris: {
@@ -36,9 +36,9 @@ export const VOICE_PERSONAS: Record<VoicePersona, VoicePersonaInfo> = {
     name: 'Commander Igris',
     title: 'The Bloodred Knight',
     avatar: '🛡️',
-    description: 'Resonant, loyal, and authoritative commander voice.',
-    pitch: 0.92,
-    rate: 0.94
+    description: 'Resonant, loyal, and fluent commander voice.',
+    pitch: 0.96,
+    rate: 0.98
   }
 };
 
@@ -46,19 +46,27 @@ export class ShadowVoiceEngine {
   private synth: SpeechSynthesis | null = null;
   public enabled: boolean = true;
   private currentPersona: VoicePersona = 'jinwoo';
+  private customVoiceName: string | null = null;
   private cachedVoices: SpeechSynthesisVoice[] = [];
 
   constructor() {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      this.synth = window.speechSynthesis;
-      this.refreshVoices();
-      if (this.synth.onvoiceschanged !== undefined) {
-        this.synth.onvoiceschanged = () => this.refreshVoices();
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('SYSTEM_VOICE_SELECTED');
+        if (saved) this.customVoiceName = saved;
+      } catch {}
+
+      if ('speechSynthesis' in window) {
+        this.synth = window.speechSynthesis;
+        this.refreshVoices();
+        if (this.synth.onvoiceschanged !== undefined) {
+          this.synth.onvoiceschanged = () => this.refreshVoices();
+        }
       }
     }
   }
 
-  private refreshVoices() {
+  public refreshVoices() {
     if (!this.synth) return;
     this.cachedVoices = this.synth.getVoices();
   }
@@ -71,55 +79,82 @@ export class ShadowVoiceEngine {
     this.currentPersona = persona;
   }
 
+  public getAvailableVoices(): SpeechSynthesisVoice[] {
+    if (!this.cachedVoices.length && this.synth) {
+      this.cachedVoices = this.synth.getVoices();
+    }
+    return this.cachedVoices.filter(v => v.lang.startsWith('en'));
+  }
+
+  public setCustomVoice(voiceName: string | null) {
+    this.customVoiceName = voiceName;
+    try {
+      if (voiceName) {
+        localStorage.setItem('SYSTEM_VOICE_SELECTED', voiceName);
+      } else {
+        localStorage.removeItem('SYSTEM_VOICE_SELECTED');
+      }
+    } catch {}
+  }
+
+  public getCustomVoice(): string | null {
+    return this.customVoiceName;
+  }
+
+  private scoreVoice(v: SpeechSynthesisVoice, persona: VoicePersona): number {
+    let score = 0;
+    const name = v.name.toLowerCase();
+
+    // Natural / Neural high-fidelity fluent models
+    if (name.includes('natural') || name.includes('online')) score += 50;
+    if (name.includes('neural')) score += 40;
+    if (name.includes('google') || name.includes('android')) score += 35;
+    if (name.includes('siri') || name.includes('apple')) score += 30;
+
+    // Cloud / network synthesized voices often have higher human fluency
+    if (!v.localService) score += 20;
+
+    // Persona-specific preference matching
+    if (persona === 'jinwoo') {
+      if (name.includes('guy') || name.includes('ryan') || name.includes('david') || name.includes('male') || name.includes('christopher')) {
+        score += 25;
+      }
+    } else if (persona === 'system') {
+      if (name.includes('aria') || name.includes('jenny') || name.includes('female') || name.includes('zira') || name.includes('google us')) {
+        score += 25;
+      }
+    } else if (persona === 'igris') {
+      if (name.includes('george') || name.includes('guy') || name.includes('male') || name.includes('mark') || name.includes('david')) {
+        score += 25;
+      }
+    }
+
+    return score;
+  }
+
   /**
    * Selects the highest quality natural human voice available on the host device.
    * Prioritizes Edge Neural / Google Natural / Apple Siri / Microsoft Natural voices.
    */
-  private pickBestVoice(persona: VoicePersona): SpeechSynthesisVoice | null {
+  public pickBestVoice(persona: VoicePersona): SpeechSynthesisVoice | null {
     if (!this.cachedVoices.length && this.synth) {
       this.cachedVoices = this.synth.getVoices();
     }
     const voices = this.cachedVoices;
     if (!voices || voices.length === 0) return null;
 
+    // If user explicitly picked a custom voice, honor it
+    if (this.customVoiceName) {
+      const custom = voices.find(v => v.name === this.customVoiceName);
+      if (custom) return custom;
+    }
+
     // Filter for English voices
     const enVoices = voices.filter(v => v.lang.startsWith('en'));
+    const pool = enVoices.length > 0 ? enVoices : voices;
 
-    if (persona === 'jinwoo') {
-      // Prefer clear, warm, natural young male voices
-      const preferred = enVoices.find(v => 
-        v.name.includes('Natural') || 
-        v.name.includes('Ryan') || 
-        v.name.includes('Guy') || 
-        v.name.includes('Google US English') ||
-        v.name.includes('David') ||
-        v.name.includes('Daniel')
-      );
-      return preferred || enVoices[0] || voices[0];
-    } else if (persona === 'system') {
-      // Prefer smooth, clean, pleasant female/neutral AI voice (Google UK, Jenny, Aria, Zira)
-      const preferred = enVoices.find(v =>
-        v.name.includes('Natural') ||
-        v.name.includes('Jenny') ||
-        v.name.includes('Aria') ||
-        v.name.includes('Google UK English Female') ||
-        v.name.includes('Zira') ||
-        v.name.includes('Google US English')
-      );
-      return preferred || enVoices[0] || voices[0];
-    } else {
-      // Igris: deeper authoritative tone
-      const preferred = enVoices.find(v =>
-        v.name.includes('Natural') ||
-        v.name.includes('Guy') ||
-        v.name.includes('Christopher') ||
-        v.name.includes('Google UK English Male') ||
-        v.name.includes('George') ||
-        v.name.includes('Mark') ||
-        v.name.includes('David')
-      );
-      return preferred || enVoices[0] || voices[0];
-    }
+    const sorted = [...pool].sort((a, b) => this.scoreVoice(b, persona) - this.scoreVoice(a, persona));
+    return sorted[0] || voices[0];
   }
 
   public speak(text: string, onEnd?: () => void, onBoundary?: (charIndex: number) => void) {
@@ -195,7 +230,6 @@ export class ShadowVoiceEngine {
   }
 
   public announceGreeting() {
-    const p = VOICE_PERSONAS[this.currentPersona];
     if (this.currentPersona === 'jinwoo') {
       this.speak(`I'm with you, Hunter. Every rep, every line of code, every minute of focus makes us stronger. What is our goal today?`);
     } else if (this.currentPersona === 'system') {

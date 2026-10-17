@@ -33,6 +33,8 @@ import { InteractiveTutorial } from './components/tutorial/InteractiveTutorial';
 import { InstallModal } from './components/install/InstallModal';
 import { ShadowVoiceWidget } from './components/monarch/ShadowVoiceWidget';
 import { QuestCombatVerificationModal } from './components/verification/QuestCombatVerificationModal';
+import { EditProfileModal } from './components/profile/EditProfileModal';
+import { LootDropModal, LootReward } from './components/loot/LootDropModal';
 import { shadowVoice } from './game/voiceAssistant';
 
 export const App: React.FC = () => {
@@ -42,6 +44,8 @@ export const App: React.FC = () => {
   const [isCreateQuestOpen, setIsCreateQuestOpen] = useState<boolean>(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(false);
   const [isInstallOpen, setIsInstallOpen] = useState<boolean>(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState<boolean>(false);
+  const [lootRewardSource, setLootRewardSource] = useState<string | null>(null);
   const [verifyingQuest, setVerifyingQuest] = useState<Quest | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -204,6 +208,10 @@ export const App: React.FC = () => {
       shadowVoice.announceTaskComplete(quest.title);
     }
 
+    if (fullReward) {
+      setLootRewardSource(quest.title);
+    }
+
     const todayStr = new Date().toISOString().slice(0, 10);
 
     setGameState(prev => {
@@ -264,6 +272,18 @@ export const App: React.FC = () => {
         }
       };
     });
+  };
+
+  // Save Custom Hunter Profile Identity
+  const handleSaveProfile = (updates: Partial<PlayerProfile>) => {
+    soundEngine.playLevelUp();
+    setGameState(prev => ({
+      ...prev,
+      player: {
+        ...prev.player,
+        ...updates
+      }
+    }));
   };
 
   // Subtask Toggle Handler
@@ -329,6 +349,8 @@ export const App: React.FC = () => {
       setPendingLevelUp(result);
     }
 
+    setLootRewardSource(session.name || 'Instant Dungeon Chamber');
+
     const todayStr = new Date().toISOString().slice(0, 10);
     const sessionMins = Math.floor(session.elapsedSeconds / 60) || session.durationMinutes;
 
@@ -366,10 +388,62 @@ export const App: React.FC = () => {
           statPoints: prev.player.statPoints + result.statPointsAwarded,
           totalFocusMinutes: prev.player.totalFocusMinutes + sessionMins,
           fatigue: Math.max(0, prev.player.fatigue - 20),
+          dungeonsClearedToday: (prev.player.dungeonsClearedToday || 0) + 1,
           stats: {
             ...prev.player.stats,
             focus: (prev.player.stats.focus || 10) + 2
           }
+        }
+      };
+    });
+  };
+
+  // Claim Daily Dungeon 2-Gate Quota Sovereign Loot Crate Bonus
+  const handleClaimDungeonQuotaBonus = () => {
+    const cleared = gameState.player.dungeonsClearedToday || 0;
+    const quota = gameState.player.dailyDungeonQuota || 2;
+    if (cleared >= quota && !gameState.player.dungeonQuotaBonusClaimed) {
+      soundEngine.playLevelUp();
+      setGameState(prev => ({
+        ...prev,
+        player: {
+          ...prev.player,
+          dungeonQuotaBonusClaimed: true
+        }
+      }));
+      setLootRewardSource('Daily 2-Gate Dungeon Quota Sovereign Bonus');
+    }
+  };
+
+  // Claim Mystery Loot Drop Crate Reward
+  const handleClaimLootReward = (reward: LootReward) => {
+    soundEngine.playLevelUp();
+    setGameState(prev => {
+      let updatedInv = prev.inventory;
+      if (reward.gearItem) {
+        if (!prev.inventory.some(i => i.id === reward.gearItem!.id)) {
+          updatedInv = [reward.gearItem, ...prev.inventory];
+        }
+      }
+      const { didLevelUp, result } = processXpGain(
+        prev.player.level,
+        prev.player.currentXp,
+        reward.xpBonus
+      );
+      if (didLevelUp) {
+        setPendingLevelUp(result);
+      }
+      return {
+        ...prev,
+        inventory: updatedInv,
+        player: {
+          ...prev.player,
+          level: didLevelUp ? result.newLevel : prev.player.level,
+          rank: didLevelUp ? result.newRank : prev.player.rank,
+          currentXp: didLevelUp ? result.remainingXp : prev.player.currentXp + reward.xpBonus,
+          requiredXp: didLevelUp ? result.newRequiredXp : prev.player.requiredXp,
+          statPoints: prev.player.statPoints + reward.statPointsBonus + (didLevelUp ? result.statPointsAwarded : 0),
+          fatigue: Math.max(0, prev.player.fatigue - reward.fatigueReduction)
         }
       };
     });
@@ -660,6 +734,7 @@ export const App: React.FC = () => {
               setActiveTab('dungeons');
             }}
             onOpenCreateQuest={() => setIsCreateQuestOpen(true)}
+            onOpenEditProfile={() => setIsEditProfileOpen(true)}
             setActiveTab={setActiveTab}
           />
         )}
@@ -680,10 +755,12 @@ export const App: React.FC = () => {
           <DungeonView
             dungeonTemplates={gameState.dungeonTemplates}
             activeDungeon={gameState.activeDungeon}
+            player={gameState.player}
             onStartDungeon={handleStartDungeon}
             onUpdateActiveDungeon={handleUpdateActiveDungeon}
             onCompleteDungeon={handleCompleteDungeon}
             onExitDungeon={handleExitDungeon}
+            onClaimDungeonQuotaBonus={handleClaimDungeonQuotaBonus}
           />
         )}
 
@@ -870,6 +947,22 @@ export const App: React.FC = () => {
         onSelectFocusQuest={() => {
           setActiveTab('quests');
         }}
+      />
+
+      {/* Edit Hunter Profile & Identity Registration Modal */}
+      <EditProfileModal
+        player={gameState.player}
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        onSaveProfile={handleSaveProfile}
+      />
+
+      {/* Mystery Loot Drop Crate Modal */}
+      <LootDropModal
+        isOpen={!!lootRewardSource}
+        onClose={() => setLootRewardSource(null)}
+        onClaimReward={handleClaimLootReward}
+        sourceName={lootRewardSource || ''}
       />
     </div>
   );

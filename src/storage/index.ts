@@ -653,7 +653,10 @@ export const DEFAULT_STATE: SystemReawakenState = {
     totalFocusMinutes: 0,
     fatigue: 0,
     lastActiveDate: getTodayString(),
-    isOnboarded: false
+    isOnboarded: false,
+    dungeonsClearedToday: 0,
+    dailyDungeonQuota: 2,
+    dungeonQuotaBonusClaimed: false
   },
   quests: DEFAULT_STARTER_QUESTS,
   inventory: DEFAULT_INVENTORY_ITEMS,
@@ -757,7 +760,8 @@ export function loadGameState(): SystemReawakenState {
       parsed = migrateLegacyData();
     }
 
-    if (!parsed) return DEFAULT_STATE;
+    const todayStr = getTodayString();
+    const isNewDay = parsed.player?.lastActiveDate && parsed.player.lastActiveDate !== todayStr;
 
     return {
       ...DEFAULT_STATE,
@@ -765,6 +769,9 @@ export function loadGameState(): SystemReawakenState {
       player: {
         ...DEFAULT_STATE.player,
         ...parsed.player,
+        dungeonsClearedToday: isNewDay ? 0 : (parsed.player?.dungeonsClearedToday ?? 0),
+        dailyDungeonQuota: parsed.player?.dailyDungeonQuota || 2,
+        dungeonQuotaBonusClaimed: isNewDay ? false : (parsed.player?.dungeonQuotaBonusClaimed ?? false),
         stats: {
           ...DEFAULT_STATE.player.stats,
           ...(parsed.player?.stats || {})

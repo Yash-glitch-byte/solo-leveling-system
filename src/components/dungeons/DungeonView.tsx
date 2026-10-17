@@ -1,24 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DungeonSession, AttributeKey } from '../../types';
+import { DungeonSession, AttributeKey, PlayerProfile } from '../../types';
 import { soundEngine } from '../../game/sound';
 import { shadowVoice } from '../../game/voiceAssistant';
 
 interface DungeonViewProps {
   dungeonTemplates: DungeonSession[];
   activeDungeon: DungeonSession | null;
+  player?: PlayerProfile;
   onStartDungeon: (session: DungeonSession) => void;
   onUpdateActiveDungeon: (session: DungeonSession) => void;
   onCompleteDungeon: (session: DungeonSession) => void;
   onExitDungeon: () => void;
+  onClaimDungeonQuotaBonus?: () => void;
 }
 
 export const DungeonView: React.FC<DungeonViewProps> = ({
   dungeonTemplates,
   activeDungeon,
+  player,
   onStartDungeon,
   onUpdateActiveDungeon,
   onCompleteDungeon,
-  onExitDungeon
+  onExitDungeon,
+  onClaimDungeonQuotaBonus
 }) => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(dungeonTemplates[0]?.id || '');
   const [customMinutes, setCustomMinutes] = useState<number>(25);
@@ -355,6 +359,77 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
         <p className="dungeon-hub-desc">
           Seal your focus into high-stakes timed chambers. Completing sessions earns bonus Hunter EXP, trains your Focus & Discipline attributes, and accelerates campaign velocity.
         </p>
+      </div>
+
+      {/* 2x-3x Daily Gate Mandate Card */}
+      <div
+        className="hud-card daily-gate-mandate-card"
+        style={{
+          background: 'linear-gradient(135deg, rgba(14, 27, 54, 0.95), rgba(9, 18, 36, 0.95))',
+          border: '1px solid #ffd700',
+          boxShadow: '0 0 25px rgba(255, 215, 0, 0.25)',
+          borderRadius: '10px',
+          padding: '16px 20px',
+          marginBottom: '20px'
+        }}
+      >
+        <div className="card-corner tl" style={{ borderColor: '#ffd700' }} />
+        <div className="card-corner tr" style={{ borderColor: '#ffd700' }} />
+        <div className="card-corner bl" style={{ borderColor: '#ffd700' }} />
+        <div className="card-corner br" style={{ borderColor: '#ffd700' }} />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.4rem' }}>🗝️</span>
+            <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '1.05rem', color: '#ffd700' }}>
+              DAILY DUNGEON GATE MANDATE (2 GATES REQUIRED / DAY)
+            </h3>
+          </div>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: '#ffd700', fontWeight: 800 }}>
+            {player?.dungeonsClearedToday || 0} / 2 CLEARED
+          </span>
+        </div>
+
+        <p style={{ color: '#e2f1ff', fontSize: '0.84rem', lineHeight: '1.5', margin: '0 0 12px 0' }}>
+          To build unbreakable real-world focus, the System mandates entering an Instant Dungeon focus chamber at least <strong>twice a day</strong> (1 Morning Focus Sprint + 1 Evening Study Grind).
+        </p>
+
+        {/* Progress Bar */}
+        <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', overflow: 'hidden', marginBottom: '12px' }}>
+          <div
+            style={{
+              width: `${Math.min(100, ((player?.dungeonsClearedToday || 0) / 2) * 100)}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #00d2ff, #ffd700)',
+              transition: 'width 0.4s ease'
+            }}
+          />
+        </div>
+
+        {(player?.dungeonsClearedToday || 0) >= 2 && !player?.dungeonQuotaBonusClaimed ? (
+          <button
+            className="hud-btn-primary"
+            onClick={onClaimDungeonQuotaBonus}
+            style={{
+              width: '100%',
+              padding: '12px',
+              fontSize: '0.9rem',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              borderColor: '#ffd700',
+              fontWeight: 800
+            }}
+          >
+            🎁 CLAIM GATE SOVEREIGN DAILY BONUS (+60 EXP & MYSTERY CRATE)
+          </button>
+        ) : (player?.dungeonsClearedToday || 0) >= 2 ? (
+          <div style={{ color: '#34d399', fontSize: '0.82rem', fontWeight: 700 }}>
+            ✓ Daily 2x Gate Mandate Fulfilled! Sovereign Bonus Claimed.
+          </div>
+        ) : (
+          <div style={{ color: '#7f9ebc', fontSize: '0.8rem' }}>
+            Complete {2 - (player?.dungeonsClearedToday || 0)} more dungeon session today to unlock the Gate Sovereign Bonus!
+          </div>
+        )}
       </div>
 
       {/* Preset Dungeon Templates */}

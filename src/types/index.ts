@@ -306,6 +306,9 @@ export interface PlayerProfile {
   fatigue: number; // 0 to 100
   lastActiveDate: string; // YYYY-MM-DD
   isOnboarded: boolean;
+  dungeonsClearedToday?: number;
+  dailyDungeonQuota?: number;
+  dungeonQuotaBonusClaimed?: boolean;
 }
 
 export interface SystemReawakenState {
