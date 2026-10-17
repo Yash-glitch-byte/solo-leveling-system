@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PlayerProfile, GameSettings, CloudSyncStatus } from '../../types';
 import { soundEngine } from '../../game/sound';
 import { notificationEngine } from '../../game/notificationSystem';
@@ -72,6 +72,26 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'verification', label: 'VERIFICATION', icon: '🛡️' },
     { id: 'analytics', label: 'ANALYTICS', icon: '📊' }
   ];
+
+  const navContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll the active tab into center view whenever activeTab changes
+  useEffect(() => {
+    if (navContainerRef.current) {
+      const activeEl = navContainerRef.current.querySelector('.nav-tab-btn.active') as HTMLElement;
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+  }, [activeTab]);
+
+  const scrollNav = (direction: 'left' | 'right') => {
+    soundEngine.playPing();
+    if (navContainerRef.current) {
+      const offset = direction === 'left' ? -320 : 320;
+      navContainerRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+  };
 
   return (
     <header className="system-header">
@@ -219,23 +239,94 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Main Navigation Bar (Desktop) */}
-      <nav className="desktop-nav-bar" aria-label="Main Navigation">
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            className={`nav-tab-btn ${activeTab === item.id ? 'active' : ''}`}
-            onClick={() => {
-              soundEngine.playPing();
-              setActiveTab(item.id);
-            }}
-          >
-            <span className="nav-tab-icon">{item.icon}</span>
-            <span className="nav-tab-label">{item.label}</span>
-            {activeTab === item.id && <span className="tab-neon-glow" />}
-          </button>
-        ))}
-      </nav>
+      {/* Main Navigation Bar with Swipe / Scroll Controls */}
+      <div className="nav-bar-wrapper" style={{ position: 'relative', width: '100%', maxWidth: '1440px', margin: '0 auto', display: 'flex', alignItems: 'center' }}>
+        {/* Left Scroll Arrow */}
+        <button
+          className="nav-scroll-btn left"
+          onClick={() => scrollNav('left')}
+          title="Scroll or swipe tabs left (Status / Quests / Dungeons)"
+          aria-label="Scroll navigation left"
+          style={{
+            position: 'absolute',
+            left: '4px',
+            zIndex: 10,
+            background: 'rgba(5, 12, 26, 0.95)',
+            border: '1px solid #00f0ff',
+            color: '#00f0ff',
+            borderRadius: '50%',
+            width: '30px',
+            height: '30px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 0 10px rgba(0, 240, 255, 0.4)',
+            fontSize: '0.75rem'
+          }}
+        >
+          ◀
+        </button>
+
+        {/* Scrollable Nav Track */}
+        <nav
+          ref={navContainerRef}
+          className="desktop-nav-bar"
+          aria-label="Main Navigation"
+          style={{
+            overflowX: 'auto',
+            scrollBehavior: 'smooth',
+            padding: '0 42px',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            display: 'flex',
+            gap: '8px'
+          }}
+        >
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              className={`nav-tab-btn ${activeTab === item.id ? 'active' : ''}`}
+              onClick={() => {
+                soundEngine.playPing();
+                setActiveTab(item.id);
+              }}
+              style={{ flexShrink: 0 }}
+            >
+              <span className="nav-tab-icon">{item.icon}</span>
+              <span className="nav-tab-label">{item.label}</span>
+              {activeTab === item.id && <span className="tab-neon-glow" />}
+            </button>
+          ))}
+        </nav>
+
+        {/* Right Scroll Arrow */}
+        <button
+          className="nav-scroll-btn right"
+          onClick={() => scrollNav('right')}
+          title="Scroll or swipe tabs right (Allies / Arena / Companion / Verification)"
+          aria-label="Scroll navigation right"
+          style={{
+            position: 'absolute',
+            right: '4px',
+            zIndex: 10,
+            background: 'rgba(5, 12, 26, 0.95)',
+            border: '1px solid #00f0ff',
+            color: '#00f0ff',
+            borderRadius: '50%',
+            width: '30px',
+            height: '30px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 0 10px rgba(0, 240, 255, 0.4)',
+            fontSize: '0.75rem'
+          }}
+        >
+          ▶
+        </button>
+      </div>
     </header>
   );
 };

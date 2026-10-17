@@ -101,35 +101,68 @@ export class ShadowVoiceEngine {
     return this.customVoiceName;
   }
 
+  public isNaturalVoice(v: SpeechSynthesisVoice): boolean {
+    const name = v.name.toLowerCase();
+    return name.includes('natural') || name.includes('online') || name.includes('neural') || name.includes('enhanced') || name.includes('google') || name.includes('premium');
+  }
+
   private scoreVoice(v: SpeechSynthesisVoice, persona: VoicePersona): number {
     let score = 0;
     const name = v.name.toLowerCase();
 
-    // Natural / Neural high-fidelity fluent models
-    if (name.includes('natural') || name.includes('online')) score += 50;
-    if (name.includes('neural')) score += 40;
-    if (name.includes('google') || name.includes('android')) score += 35;
-    if (name.includes('siri') || name.includes('apple')) score += 30;
+    // Heavily penalize legacy robotic SAPI / desktop synthesizer voices
+    if (name.includes('desktop') || name.includes('sapi') || name.includes('espeak') || name.includes('speech server')) {
+      score -= 120;
+    }
 
-    // Cloud / network synthesized voices often have higher human fluency
-    if (!v.localService) score += 20;
+    // Huge priority for Microsoft Edge Online Natural & Neural voices (100% human-like)
+    if (name.includes('natural') || name.includes('online')) score += 160;
+    if (name.includes('neural')) score += 140;
 
-    // Persona-specific preference matching
+    // Google / Android human speech models
+    if (name.includes('google') || name.includes('android')) score += 90;
+
+    // Apple Enhanced / Siri human voices
+    if (name.includes('enhanced') || name.includes('siri') || name.includes('apple') || name.includes('premium')) score += 80;
+
+    // Cloud / network synthesized voices have vastly superior human inflection
+    if (!v.localService) score += 30;
+
+    // Persona-specific preference matching (prioritizing natural human speakers)
     if (persona === 'jinwoo') {
-      if (name.includes('guy') || name.includes('ryan') || name.includes('david') || name.includes('male') || name.includes('christopher')) {
-        score += 25;
+      if (name.includes('christopher') || name.includes('guy') || name.includes('ryan') || name.includes('andrew') || name.includes('steffan')) {
+        score += 45;
       }
     } else if (persona === 'system') {
-      if (name.includes('aria') || name.includes('jenny') || name.includes('female') || name.includes('zira') || name.includes('google us')) {
-        score += 25;
+      if (name.includes('jenny') || name.includes('aria') || name.includes('sonia') || name.includes('female') || name.includes('google us')) {
+        score += 45;
       }
     } else if (persona === 'igris') {
-      if (name.includes('george') || name.includes('guy') || name.includes('male') || name.includes('mark') || name.includes('david')) {
-        score += 25;
+      if (name.includes('george') || name.includes('brian') || name.includes('guy') || name.includes('christopher')) {
+        score += 45;
       }
     }
 
     return score;
+  }
+
+  /**
+   * Pre-processes text with natural breathing pauses, acronym phonetics, and contractions
+   * to eliminate robotic AI cadences.
+   */
+  public humanizeText(text: string): string {
+    return text
+      .replace(/\bDSP\b/g, 'D S P')
+      .replace(/\bXP\b/g, 'X P')
+      .replace(/\bEXP\b/g, 'E X P')
+      .replace(/\bHP\b/g, 'H P')
+      .replace(/\bmins\b/g, 'minutes')
+      .replace(/\bmin\b/g, 'minute')
+      .replace(/\bsec\b/g, 'seconds')
+      .replace(/\b(\d+)\s*d\b/g, '$1 days')
+      .replace(/\bvs\b/gi, 'versus')
+      .replace(/([.!?])\s*/g, '$1 ')
+      .trim();
   }
 
   /**
@@ -157,6 +190,19 @@ export class ShadowVoiceEngine {
     return sorted[0] || voices[0];
   }
 
+  public testVoice(voiceName: string, onEnd?: () => void) {
+    if (!this.synth) return;
+    this.synth.cancel();
+    const voices = this.cachedVoices.length ? this.cachedVoices : this.synth.getVoices();
+    const v = voices.find(voice => voice.name === voiceName);
+    const utterance = new SpeechSynthesisUtterance("Greetings, Hunter. I am your guide, speaking with fluent human inflection. Ready for today's directives.");
+    if (v) utterance.voice = v;
+    utterance.pitch = 0.98;
+    utterance.rate = 1.0;
+    if (onEnd) utterance.onend = onEnd;
+    this.synth.speak(utterance);
+  }
+
   public speak(text: string, onEnd?: () => void, onBoundary?: (charIndex: number) => void) {
     if (!this.enabled || !this.synth) {
       if (onEnd) onEnd();
@@ -166,7 +212,8 @@ export class ShadowVoiceEngine {
     try {
       this.synth.cancel(); // Stop any pending audio immediately
 
-      const utterance = new SpeechSynthesisUtterance(text);
+      const processed = this.humanizeText(text);
+      const utterance = new SpeechSynthesisUtterance(processed);
       const personaInfo = VOICE_PERSONAS[this.currentPersona];
       const bestVoice = this.pickBestVoice(this.currentPersona);
 

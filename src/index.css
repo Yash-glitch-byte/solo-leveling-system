@@ -2664,5 +2664,35 @@ body {
     grid-template-columns: 1fr !important;
     width: 100% !important;
   }
+
+  .hide-mobile {
+    display: none !important;
+  }
 }
 
+/* Chapter Swiping Page Transitions */
+@keyframes chapterSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.chapter-slide-enter {
+  animation: chapterSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.nav-scroll-btn:hover {
+  background: var(--cyan-bright) !important;
+  color: #051226 !important;
+  box-shadow: 0 0 15px var(--cyan-bright) !important;
+  transform: scale(1.08);
+}
+
+.desktop-nav-bar::-webkit-scrollbar {
+  display: none;
+}
