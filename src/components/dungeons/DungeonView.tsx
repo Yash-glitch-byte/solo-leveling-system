@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DungeonSession, AttributeKey } from '../../types';
 import { soundEngine } from '../../game/sound';
+import { shadowVoice } from '../../game/voiceAssistant';
 
 interface DungeonViewProps {
   dungeonTemplates: DungeonSession[];
@@ -24,6 +25,7 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
   const [customName, setCustomName] = useState<string>('Custom Deep Work Chamber');
   const [customObjectives, setCustomObjectives] = useState<string>('Complete task block 1\nVerify solution\nReview notes');
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState<boolean>(false);
+  const [isCheatWarningOpen, setIsCheatWarningOpen] = useState<boolean>(false);
 
   const timerRef = useRef<number | null>(null);
 
@@ -192,24 +194,44 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
           </div>
 
           {/* Chamber Controls */}
-          <div className="chamber-controls-row">
-            <button
-              className={`hud-btn-primary ${activeDungeon.isRunning ? 'pause-btn' : 'resume-btn'}`}
-              onClick={togglePause}
-            >
-              {activeDungeon.isRunning ? '⏸ PAUSE FOCUS' : '▶ RESUME FOCUS'}
-            </button>
+          {(() => {
+            const minRequiredSeconds = Math.max(60, Math.floor((activeDungeon.durationMinutes * 60) * 0.7));
+            const isTimeSatisfied = activeDungeon.elapsedSeconds >= minRequiredSeconds;
 
-            <button
-              className="hud-btn-gold finish-early-btn"
-              onClick={() => {
-                soundEngine.playDungeonClear();
-                setIsVictoryModalOpen(true);
-              }}
-            >
-              ✦ COMPLETE DUNGEON NOW
-            </button>
-          </div>
+            return (
+              <div className="chamber-controls-row">
+                <button
+                  className={`hud-btn-primary ${activeDungeon.isRunning ? 'pause-btn' : 'resume-btn'}`}
+                  onClick={togglePause}
+                >
+                  {activeDungeon.isRunning ? '⏸ PAUSE FOCUS' : '▶ RESUME FOCUS'}
+                </button>
+
+                <button
+                  className={isTimeSatisfied ? 'hud-btn-gold finish-early-btn' : 'hud-btn-secondary locked-dungeon-btn'}
+                  onClick={() => {
+                    if (!isTimeSatisfied) {
+                      soundEngine.playPing();
+                      shadowVoice.announceCheatRejection();
+                      setIsCheatWarningOpen(true);
+                      return;
+                    }
+                    soundEngine.playDungeonClear();
+                    setIsVictoryModalOpen(true);
+                  }}
+                  style={{
+                    opacity: isTimeSatisfied ? 1 : 0.85,
+                    border: isTimeSatisfied ? '1px solid #ffd700' : '1px dashed #ff3366',
+                    color: isTimeSatisfied ? '#ffd700' : '#ff88a3'
+                  }}
+                >
+                  {isTimeSatisfied
+                    ? '✦ CLAIM DUNGEON VICTORY'
+                    : `🔒 FOCUS LOCKED (${formatTimer(minRequiredSeconds - activeDungeon.elapsedSeconds)} LEFT)`}
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Real-time Objectives Checklist */}
           <div className="chamber-objectives-box">
@@ -234,6 +256,53 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
             <span>REWARDS ON SURVIVAL: <strong>+{activeDungeon.xpReward} EXP</strong> & <strong>+2 FOCUS ATTRIBUTE</strong></span>
           </div>
         </div>
+
+        {/* ANTI-CHEAT & DURATION VERIFICATION MODAL */}
+        {isCheatWarningOpen && (
+          <div className="modal-backdrop">
+            <div className="hud-card dungeon-cheat-modal" style={{ maxWidth: '520px', width: '92%', borderColor: '#ff3366', boxShadow: '0 0 35px rgba(255, 51, 102, 0.45)' }}>
+              <div className="card-corner tl" style={{ borderColor: '#ff3366' }} />
+              <div className="card-corner tr" style={{ borderColor: '#ff3366' }} />
+              <div className="card-corner bl" style={{ borderColor: '#ff3366' }} />
+              <div className="card-corner br" style={{ borderColor: '#ff3366' }} />
+
+              <div style={{ color: '#ff3366', fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px' }}>
+                ⚠️ [SYSTEM TELEMETRY REJECTION: INSUFFICIENT FOCUS]
+              </div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: '#fff', marginBottom: '12px' }}>
+                UNEARNED VICTORY DENIED
+              </h2>
+              <div style={{ background: 'rgba(255, 51, 102, 0.1)', border: '1px solid rgba(255, 51, 102, 0.3)', borderRadius: '6px', padding: '14px', marginBottom: '16px' }}>
+                <p style={{ color: '#ff88a3', fontSize: '0.9rem', lineHeight: '1.5', margin: 0 }}>
+                  You have only focused for <strong>{Math.floor(activeDungeon.elapsedSeconds / 60)}m {activeDungeon.elapsedSeconds % 60}s</strong> of this <strong>{activeDungeon.durationMinutes}-minute</strong> trial.
+                </p>
+                <p style={{ color: '#e2f1ff', fontSize: '0.84rem', marginTop: '8px', lineHeight: '1.5' }}>
+                  The System only grants real EXP when you genuinely endure the trial. To claim rewards, you must maintain active focus for at least <strong>{Math.floor(Math.max(60, Math.floor((activeDungeon.durationMinutes * 60) * 0.7)) / 60)} minutes</strong>.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
+                <button
+                  className="hud-btn-primary"
+                  onClick={() => setIsCheatWarningOpen(false)}
+                  style={{ width: '100%', padding: '12px' }}
+                >
+                  ▶ RESUME FOCUS SESSION
+                </button>
+                <button
+                  className="hud-btn-danger"
+                  onClick={() => {
+                    setIsCheatWarningOpen(false);
+                    onExitDungeon();
+                  }}
+                  style={{ width: '100%', padding: '10px' }}
+                >
+                  ABANDON TRIAL (0 EXP AWARDED)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* VICTORY CEREMONY MODAL */}
         {isVictoryModalOpen && (

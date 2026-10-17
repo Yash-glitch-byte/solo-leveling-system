@@ -31,6 +31,9 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { LevelUpModal } from './components/common/LevelUpModal';
 import { InteractiveTutorial } from './components/tutorial/InteractiveTutorial';
 import { InstallModal } from './components/install/InstallModal';
+import { ShadowVoiceWidget } from './components/monarch/ShadowVoiceWidget';
+import { QuestCombatVerificationModal } from './components/verification/QuestCombatVerificationModal';
+import { shadowVoice } from './game/voiceAssistant';
 
 export const App: React.FC = () => {
   const [gameState, setGameState] = useState<SystemReawakenState>(() => loadGameState());
@@ -39,6 +42,8 @@ export const App: React.FC = () => {
   const [isCreateQuestOpen, setIsCreateQuestOpen] = useState<boolean>(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(false);
   const [isInstallOpen, setIsInstallOpen] = useState<boolean>(false);
+  const [verifyingQuest, setVerifyingQuest] = useState<Quest | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpResult | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
@@ -147,84 +152,14 @@ export const App: React.FC = () => {
     }));
   };
 
-  // Quest Toggle (Complete / Uncomplete) Handler
+  // Quest Toggle (Opens Combat Verification Modal if completing)
   const handleToggleQuest = (questId: string) => {
     const quest = gameState.quests.find(q => q.id === questId);
     if (!quest) return;
 
-    const isMarkingComplete = quest.status !== 'completed';
-
-    if (isMarkingComplete) {
-      soundEngine.playQuestComplete();
-
-      // Apply Monarch passive multiplier if Ruler's Authority is active
-      const xpMultiplier = (gameState.monarch.unlocked && gameState.monarch.authorityActive) ? 1.15 : 1.0;
-      const earnedXp = Math.round(quest.xpReward * xpMultiplier);
-
-      const { didLevelUp, result } = processXpGain(
-        gameState.player.level,
-        gameState.player.currentXp,
-        earnedXp
-      );
-
-      if (didLevelUp) {
-        soundEngine.playLevelUp();
-        setPendingLevelUp(result);
-      }
-
-      const todayStr = new Date().toISOString().slice(0, 10);
-
-      setGameState(prev => {
-        const updatedQuests = prev.quests.map(q =>
-          q.id === questId
-            ? { ...q, status: 'completed' as const, completedAt: new Date().toISOString() }
-            : q
-        );
-
-        const currentAttrVal = prev.player.stats[quest.attribute] || 10;
-        const newAttrVal = currentAttrVal + quest.attributePoints;
-
-        // Update history
-        const existingHistory = [...prev.history];
-        const todayRecordIdx = existingHistory.findIndex(h => h.date === todayStr);
-
-        if (todayRecordIdx >= 0) {
-          existingHistory[todayRecordIdx] = {
-            ...existingHistory[todayRecordIdx],
-            xpGained: existingHistory[todayRecordIdx].xpGained + earnedXp,
-            questsCompleted: existingHistory[todayRecordIdx].questsCompleted + 1
-          };
-        } else {
-          existingHistory.push({
-            date: todayStr,
-            xpGained: earnedXp,
-            questsCompleted: 1,
-            focusMinutes: 0,
-            categoriesActive: [quest.category]
-          });
-        }
-
-        return {
-          ...prev,
-          quests: updatedQuests,
-          history: existingHistory,
-          syncStatus: prev.cloudAccount.cloudSyncEnabled ? 'sync_pending' : 'local_only',
-          player: {
-            ...prev.player,
-            level: result.newLevel,
-            rank: result.newRank,
-            currentXp: result.remainingXp,
-            requiredXp: result.newRequiredXp,
-            statPoints: prev.player.statPoints + result.statPointsAwarded,
-            totalQuestsCompleted: prev.player.totalQuestsCompleted + 1,
-            fatigue: Math.max(0, prev.player.fatigue - 5),
-            stats: {
-              ...prev.player.stats,
-              [quest.attribute]: newAttrVal
-            }
-          }
-        };
-      });
+    if (quest.status !== 'completed') {
+      soundEngine.playPing();
+      setVerifyingQuest(quest);
     } else {
       // Revert completed status
       soundEngine.playPing();
@@ -239,6 +174,96 @@ export const App: React.FC = () => {
         }
       }));
     }
+  };
+
+  // Verified Quest Completion with Voice Announcement
+  const handleVerifyAndCompleteQuest = (questId: string, fullReward: boolean, proofDetails?: string) => {
+    const quest = gameState.quests.find(q => q.id === questId);
+    if (!quest) return;
+
+    soundEngine.playQuestComplete();
+
+    // Apply Monarch passive multiplier if Ruler's Authority is active
+    const xpMultiplier = (gameState.monarch.unlocked && gameState.monarch.authorityActive) ? 1.15 : 1.0;
+    const baseReward = fullReward ? quest.xpReward : Math.round(quest.xpReward * 0.3);
+    const earnedXp = Math.round(baseReward * xpMultiplier);
+
+    const { didLevelUp, result } = processXpGain(
+      gameState.player.level,
+      gameState.player.currentXp,
+      earnedXp
+    );
+
+    if (didLevelUp) {
+      soundEngine.playLevelUp();
+      setPendingLevelUp(result);
+      if (voiceEnabled) {
+        shadowVoice.announceLevelUp(result.newLevel);
+      }
+    } else if (voiceEnabled) {
+      shadowVoice.announceTaskComplete(quest.title);
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    setGameState(prev => {
+      const updatedQuests = prev.quests.map(q =>
+        q.id === questId
+          ? {
+              ...q,
+              status: 'completed' as const,
+              completedAt: new Date().toISOString(),
+              verificationTier: fullReward ? ('sensor_verified' as const) : ('self_reported' as const),
+              completionNotes: proofDetails || q.completionNotes
+            }
+          : q
+      );
+
+      const currentAttrVal = prev.player.stats[quest.attribute] || 10;
+      const attrGain = fullReward ? quest.attributePoints : 0;
+      const newAttrVal = currentAttrVal + attrGain;
+
+      // Update history
+      const existingHistory = [...prev.history];
+      const todayRecordIdx = existingHistory.findIndex(h => h.date === todayStr);
+
+      if (todayRecordIdx >= 0) {
+        existingHistory[todayRecordIdx] = {
+          ...existingHistory[todayRecordIdx],
+          xpGained: existingHistory[todayRecordIdx].xpGained + earnedXp,
+          questsCompleted: existingHistory[todayRecordIdx].questsCompleted + 1
+        };
+      } else {
+        existingHistory.push({
+          date: todayStr,
+          xpGained: earnedXp,
+          questsCompleted: 1,
+          focusMinutes: 0,
+          categoriesActive: [quest.category]
+        });
+      }
+
+      return {
+        ...prev,
+        quests: updatedQuests,
+        history: existingHistory,
+        syncStatus: prev.cloudAccount.cloudSyncEnabled ? 'sync_pending' : 'local_only',
+        player: {
+          ...prev.player,
+          level: result.newLevel,
+          rank: result.newRank,
+          currentXp: result.remainingXp,
+          requiredXp: result.newRequiredXp,
+          statPoints: prev.player.statPoints + result.statPointsAwarded,
+          totalQuestsCompleted: prev.player.totalQuestsCompleted + 1,
+          fatigue: Math.max(0, prev.player.fatigue - 5),
+          stats: {
+            ...prev.player.stats,
+            [quest.attribute]: newAttrVal
+          }
+        }
+      };
+    });
   };
 
   // Subtask Toggle Handler
@@ -815,6 +840,32 @@ export const App: React.FC = () => {
         onClose={() => setIsInstallOpen(false)}
         deferredPrompt={deferredPrompt}
         onNativeInstall={handleNativeInstall}
+      />
+
+      {/* Real-Life Physical & Technical Quest Combat Verification Modal */}
+      {verifyingQuest && (
+        <QuestCombatVerificationModal
+          quest={verifyingQuest}
+          isOpen={!!verifyingQuest}
+          onClose={() => setVerifyingQuest(null)}
+          onVerifyAndComplete={handleVerifyAndCompleteQuest}
+        />
+      )}
+
+      {/* Interactive Shadow Commander Voice Assistant (Igris) */}
+      <ShadowVoiceWidget
+        player={gameState.player}
+        quests={gameState.quests}
+        voiceEnabled={voiceEnabled}
+        onToggleVoice={() => {
+          const next = !voiceEnabled;
+          setVoiceEnabled(next);
+          if (next) {
+            shadowVoice.speak("Shadow Army resonance active. Ready for your command, Monarch.");
+          } else {
+            shadowVoice.speak("Shadow communications silenced.");
+          }
+        }}
       />
     </div>
   );
