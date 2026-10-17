@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlayerProfile, Quest, AttributeKey, BossChallenge, Campaign } from '../../types';
+import { PlayerProfile, Quest, AttributeKey, BossChallenge, Campaign, EquippedGear } from '../../types';
 import { getAttributeDisplayName, getAttributeColor } from '../../game/progression';
 import { generateAdvisorAdvice } from '../../game/advisor';
 import { soundEngine } from '../../game/sound';
@@ -9,6 +9,7 @@ interface DashboardProps {
   quests: Quest[];
   bosses: BossChallenge[];
   activeCampaign: Campaign | undefined;
+  equippedGear?: EquippedGear;
   onAllocateStat: (attribute: AttributeKey) => void;
   onToggleQuest: (questId: string) => void;
   onEnterDungeon: () => void;
@@ -16,11 +17,22 @@ interface DashboardProps {
   setActiveTab: (tab: string) => void;
 }
 
+const ATTRIBUTE_DETAILS: Record<AttributeKey, { realLife: string; icon: string }> = {
+  strength: { icon: '🏋️', realLife: 'Push-ups, workouts & physical energy' },
+  vitality: { icon: '💧', realLife: 'Hydration, sleep & biological recovery' },
+  intelligence: { icon: '💻', realLife: 'DSA, algorithmic problem solving & technical learning' },
+  focus: { icon: '🧠', realLife: 'Deep study, zero distraction & concentration' },
+  discipline: { icon: '⏰', realLife: 'Waking up, daily consistency & routine' },
+  career: { icon: '💼', realLife: 'Resume, coding portfolio & career milestones' },
+  communication: { icon: '🗣️', realLife: 'Reading, articulation & social confidence' }
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({
   player,
   quests,
   bosses,
   activeCampaign,
+  equippedGear,
   onAllocateStat,
   onToggleQuest,
   onEnterDungeon,
@@ -105,24 +117,63 @@ export const Dashboard: React.FC<DashboardProps> = ({
             )}
           </div>
 
-          {/* Core Attribute Grid */}
-          <div className="attributes-grid">
+          {/* Core Attribute Grid with Real-Life Skill Reflection */}
+          <div className="attributes-grid" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {attributeKeys.map(key => {
               const val = player.stats[key] || 10;
               const color = getAttributeColor(key);
+              const details = ATTRIBUTE_DETAILS[key] || { icon: '⚡', realLife: 'Core life metric' };
               return (
-                <div key={key} className="attribute-row">
-                  <div className="attr-meta">
-                    <span className="attr-dot" style={{ backgroundColor: color }} />
-                    <span className="attr-name">{getAttributeDisplayName(key)}</span>
+                <div
+                  key={key}
+                  className="attribute-row"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(10, 20, 38, 0.5)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}
+                >
+                  <div className="attr-meta" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.1rem' }}>{details.icon}</span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="attr-dot" style={{ backgroundColor: color }} />
+                        <span className="attr-name" style={{ fontWeight: 700, fontSize: '0.84rem' }}>
+                          {getAttributeDisplayName(key)}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: '#7f9ebc', display: 'block', marginTop: '1px' }}>
+                        {details.realLife}
+                      </span>
+                    </div>
                   </div>
-                  <div className="attr-right">
-                    <span className="attr-value">{val}</span>
+                  <div className="attr-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span className="attr-value" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+                      {val}
+                    </span>
                     <button
                       className="add-stat-btn"
                       disabled={player.statPoints <= 0}
                       onClick={() => onAllocateStat(key)}
                       title={`Upgrade ${key} (+1)`}
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '4px',
+                        background: player.statPoints > 0 ? 'rgba(0, 210, 255, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                        border: player.statPoints > 0 ? '1px solid #00f0ff' : '1px solid rgba(255, 255, 255, 0.1)',
+                        color: player.statPoints > 0 ? '#00f0ff' : '#4a627a',
+                        cursor: player.statPoints > 0 ? 'pointer' : 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: '0.9rem'
+                      }}
                     >
                       +
                     </button>
@@ -131,6 +182,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
               );
             })}
           </div>
+
+          {/* Real-Life Self Improvement Breakdown */}
+          <div style={{ marginTop: '14px', background: 'rgba(0, 210, 255, 0.05)', border: '1px solid rgba(0, 210, 255, 0.2)', borderRadius: '8px', padding: '12px 14px' }}>
+            <span style={{ fontSize: '0.74rem', color: '#00f0ff', fontFamily: 'var(--font-display)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+              ✦ HOW YOUR REAL-LIFE ACTIONS LEVEL YOU UP
+            </span>
+            <ul style={{ margin: 0, paddingLeft: '16px', color: '#b9d2eb', fontSize: '0.76rem', lineHeight: '1.5' }}>
+              <li><strong>Push-up Sets & Cardio</strong>: Directly upgrades your <strong>Strength (STR)</strong>.</li>
+              <li><strong>DSA & Coding Challenges</strong>: Directly upgrades your <strong>Intelligence (INT)</strong>.</li>
+              <li><strong>25-Min Focus Chambers</strong>: Directly upgrades your <strong>Focus (FOC)</strong>.</li>
+              <li><strong>Hydration & Sleep Protocol</strong>: Directly upgrades your <strong>Vitality (VIT)</strong>.</li>
+            </ul>
+          </div>
+
+          {/* Equipped Hunter Attires & E-Ring */}
+          {equippedGear && (
+            <div style={{ marginTop: '12px', background: 'rgba(14, 27, 54, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '10px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.74rem', color: '#ffd700', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+                  💍 EQUIPPED ATTIRE & RELICS
+                </span>
+                <button
+                  onClick={() => setActiveTab('inventory')}
+                  style={{ background: 'transparent', border: 'none', color: '#00d2ff', fontSize: '0.72rem', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Manage Loadout →
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {Object.entries(equippedGear).map(([slotKey, item]) => (
+                  <div
+                    key={slotKey}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: item ? 'rgba(0, 210, 255, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                      border: item ? '1px solid rgba(0, 210, 255, 0.3)' : '1px dashed rgba(255, 255, 255, 0.1)',
+                      borderRadius: '4px',
+                      padding: '3px 8px',
+                      fontSize: '0.72rem',
+                      color: item ? '#fff' : '#4a627a'
+                    }}
+                  >
+                    <span>{item ? item.icon : '⚪'}</span>
+                    <span>{item ? item.name : slotKey.toUpperCase()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Biological Vitals & Fatigue */}
           <div className="vitals-row">

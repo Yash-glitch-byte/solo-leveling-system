@@ -652,6 +652,7 @@ export const App: React.FC = () => {
             quests={gameState.quests}
             bosses={gameState.bosses}
             activeCampaign={activeCampaign}
+            equippedGear={gameState.equippedGear}
             onAllocateStat={handleAllocateStat}
             onToggleQuest={handleToggleQuest}
             onEnterDungeon={() => {
@@ -852,7 +853,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Interactive Shadow Commander Voice Assistant (Igris) */}
+      {/* Interactive Holographic Voice Guide & Dedication Terminal */}
       <ShadowVoiceWidget
         player={gameState.player}
         quests={gameState.quests}
@@ -861,10 +862,13 @@ export const App: React.FC = () => {
           const next = !voiceEnabled;
           setVoiceEnabled(next);
           if (next) {
-            shadowVoice.speak("Shadow Army resonance active. Ready for your command, Monarch.");
+            shadowVoice.speak("System Guide audio active. Ready for your command, Hunter.");
           } else {
-            shadowVoice.speak("Shadow communications silenced.");
+            shadowVoice.speak("Guide communications silenced.");
           }
+        }}
+        onSelectFocusQuest={() => {
+          setActiveTab('quests');
         }}
       />
     </div>

@@ -11,10 +11,10 @@ console.log('[POSTBUILD] Synchronizing production bundle to repository root...')
 
 // Create version.json for in-app update checks
 const versionInfo = {
-  version: '2.6.0',
+  version: '2.7.0',
   timestamp: Date.now(),
   channel: 'production',
-  protocol: 'HUNTER PROTOCOL v2.6.0 (SHADOW VOICE & ANTI-CHEAT ENGINE)'
+  protocol: 'HUNTER PROTOCOL v2.7.0 (HOLOGRAPHIC VOICE GUIDE & LOADOUT MATRIX)'
 };
 fs.writeFileSync(path.resolve(rootDir, 'version.json'), JSON.stringify(versionInfo, null, 2), 'utf-8');
 if (fs.existsSync(distDir)) {
