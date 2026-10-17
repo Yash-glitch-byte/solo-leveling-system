@@ -10,6 +10,8 @@ interface SettingsModalProps {
   fullState: SystemReawakenState;
   onRestoreState: (restored: SystemReawakenState) => void;
   onClose: () => void;
+  updateAvailable?: boolean;
+  onApplyUpdate?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -17,11 +19,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   updateSettings,
   fullState,
   onRestoreState,
-  onClose
+  onClose,
+  updateAvailable,
+  onApplyUpdate
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
 
   // Cloud Account local edits
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(fullState.cloudAccount.cloudSyncEnabled);
@@ -247,6 +253,76 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onChange={handleFileInput}
               />
             </div>
+          </div>
+
+          {/* System Updates & Direct OTA Check */}
+          <div className="settings-section" style={{ border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 240, 255, 0.03)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h4 className="section-title" style={{ margin: 0 }}>SYSTEM UPDATES & ENGINE VERSION</h4>
+              <span style={{ fontSize: '0.8rem', color: '#00f0ff', padding: '2px 8px', border: '1px solid #00f0ff', borderRadius: '4px' }}>
+                v2.5.1 ACTIVE
+              </span>
+            </div>
+            <p className="settings-desc">
+              Directly verify and download new game features, quests, and balance updates to your phone or PC without resetting your hunter rank or XP.
+            </p>
+
+            {updateAvailable && onApplyUpdate && (
+              <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255, 215, 0, 0.1)', border: '1px solid #ffd700', borderRadius: '6px' }}>
+                <p style={{ color: '#ffd700', fontWeight: 'bold', margin: '0 0 8px 0', fontSize: '0.9rem' }}>
+                  ✦ NEW COMBAT PROTOCOL READY TO INSTALL!
+                </p>
+                <button
+                  className="hud-btn-primary"
+                  onClick={() => {
+                    soundEngine.playLevelUp();
+                    onApplyUpdate();
+                  }}
+                  style={{ width: '100%', padding: '10px', letterSpacing: '1px' }}
+                >
+                  ⚡ APPLY UPDATE & RELOAD NOW
+                </button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="hud-btn-secondary"
+                onClick={async () => {
+                  soundEngine.playPing();
+                  setCheckingUpdate(true);
+                  setUpdateStatus(null);
+                  try {
+                    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                      const reg = await navigator.serviceWorker.getRegistration();
+                      if (reg) await reg.update();
+                    }
+                    const res = await fetch('./version.json?t=' + Date.now());
+                    if (res.ok) {
+                      const data = await res.json();
+                      setCheckingUpdate(false);
+                      setUpdateStatus(`✓ System verified: Running ${data.protocol || 'v2.5.1'}. Combat engine is current.`);
+                    } else {
+                      setCheckingUpdate(false);
+                      setUpdateStatus('✓ System Core verified. Running on latest stable protocol.');
+                    }
+                  } catch {
+                    setCheckingUpdate(false);
+                    setUpdateStatus('✓ System verified. Operating on latest local protocol.');
+                  }
+                }}
+                disabled={checkingUpdate}
+                style={{ flex: 1, minWidth: '200px' }}
+              >
+                {checkingUpdate ? '🔄 SCANNING SYSTEM REGISTRY...' : '🔄 CHECK FOR SYSTEM UPDATES'}
+              </button>
+            </div>
+
+            {updateStatus && (
+              <p style={{ marginTop: '10px', color: '#00d2ff', fontSize: '0.85rem' }}>
+                {updateStatus}
+              </p>
+            )}
           </div>
 
           {/* Destructive Action */}

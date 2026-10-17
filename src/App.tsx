@@ -796,6 +796,8 @@ export const App: React.FC = () => {
           fullState={gameState}
           onRestoreState={restored => setGameState(restored)}
           onClose={() => setIsSettingsOpen(false)}
+          updateAvailable={updateAvailable}
+          onApplyUpdate={handleApplyUpdate}
         />
       )}
 

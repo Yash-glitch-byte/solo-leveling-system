@@ -9,20 +9,36 @@ const distDir = path.resolve(rootDir, 'dist');
 
 console.log('[POSTBUILD] Synchronizing production bundle to repository root...');
 
-// 1. Copy dist/index.dev.html to root index.html and dist/index.html
+// Create version.json for in-app update checks
+const versionInfo = {
+  version: '2.5.1',
+  timestamp: Date.now(),
+  channel: 'production',
+  protocol: 'HUNTER PROTOCOL v2.5.1'
+};
+fs.writeFileSync(path.resolve(rootDir, 'version.json'), JSON.stringify(versionInfo, null, 2), 'utf-8');
+if (fs.existsSync(distDir)) {
+  fs.writeFileSync(path.resolve(distDir, 'version.json'), JSON.stringify(versionInfo, null, 2), 'utf-8');
+}
+
+// 1. Process and normalize index.html
 const builtHtml = path.resolve(distDir, 'index.dev.html');
 const targetRootHtml = path.resolve(rootDir, 'index.html');
 const targetDistHtml = path.resolve(distDir, 'index.html');
 
+let htmlContent = '';
 if (fs.existsSync(builtHtml)) {
-  const content = fs.readFileSync(builtHtml, 'utf-8');
-  fs.writeFileSync(targetRootHtml, content, 'utf-8');
-  fs.writeFileSync(targetDistHtml, content, 'utf-8');
-  console.log('✓ Successfully wrote production index.html to repository root and dist/');
+  htmlContent = fs.readFileSync(builtHtml, 'utf-8');
 } else if (fs.existsSync(targetDistHtml)) {
-  const content = fs.readFileSync(targetDistHtml, 'utf-8');
-  fs.writeFileSync(targetRootHtml, content, 'utf-8');
-  console.log('✓ Copied dist/index.html to repository root');
+  htmlContent = fs.readFileSync(targetDistHtml, 'utf-8');
+}
+
+if (htmlContent) {
+  // Normalize manifest link to always point to root ./manifest.json
+  htmlContent = htmlContent.replace(/<link rel="manifest" href="[^"]*"\s*\/?>/i, '<link rel="manifest" href="./manifest.json" />');
+  fs.writeFileSync(targetRootHtml, htmlContent, 'utf-8');
+  fs.writeFileSync(targetDistHtml, htmlContent, 'utf-8');
+  console.log('✓ Successfully wrote normalized production index.html (pointing to ./manifest.json)');
 }
 
 // 2. Copy dist/assets to root assets
@@ -40,15 +56,31 @@ if (fs.existsSync(distAssets)) {
   console.log(`✓ Copied ${files.length} production asset files to root assets/`);
 }
 
-// 3. Ensure sw.js, manifest.json, icon.svg, and PNG icons are in root
-const filesToSync = ['sw.js', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+// 3. Ensure icons exist in BOTH root and assets/ to prevent any 404s
+const iconFiles = ['icon.svg', 'icon-192.png', 'icon-512.png'];
+for (const icon of iconFiles) {
+  const rootIcon = path.resolve(rootDir, icon);
+  const distIcon = path.resolve(distDir, icon);
+  const rootAssetIcon = path.resolve(rootAssets, icon);
+  const distAssetIcon = path.resolve(distAssets, icon);
+
+  if (fs.existsSync(rootIcon)) {
+    fs.copyFileSync(rootIcon, rootAssetIcon);
+    if (fs.existsSync(distDir)) fs.copyFileSync(rootIcon, distIcon);
+    if (fs.existsSync(distAssets)) fs.copyFileSync(rootIcon, distAssetIcon);
+  }
+}
+console.log('✓ Replicated icons across root and assets/ for fail-safe manifest resolution');
+
+// 4. Ensure sw.js, manifest.json, version.json are in root
+const filesToSync = ['sw.js', 'manifest.json', 'version.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 for (const file of filesToSync) {
   const distFile = path.resolve(distDir, file);
   const rootFile = path.resolve(rootDir, file);
-  if (fs.existsSync(distFile)) {
+  if (fs.existsSync(distFile) && !fs.existsSync(rootFile)) {
     fs.copyFileSync(distFile, rootFile);
     console.log(`✓ Synchronized ${file} to root`);
   }
 }
 
-console.log('[POSTBUILD] Repository root is now fully prepared for direct GitHub Pages static hosting.');
+console.log('[POSTBUILD] Repository root is fully prepared for fail-safe PWA WebAPK generation on GitHub Pages.');
