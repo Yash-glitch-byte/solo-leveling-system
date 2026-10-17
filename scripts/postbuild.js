@@ -40,8 +40,8 @@ if (fs.existsSync(distAssets)) {
   console.log(`✓ Copied ${files.length} production asset files to root assets/`);
 }
 
-// 3. Ensure sw.js, manifest.json, icon.svg are in root
-const filesToSync = ['sw.js', 'manifest.json', 'icon.svg'];
+// 3. Ensure sw.js, manifest.json, icon.svg, and PNG icons are in root
+const filesToSync = ['sw.js', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 for (const file of filesToSync) {
   const distFile = path.resolve(distDir, file);
   const rootFile = path.resolve(rootDir, file);

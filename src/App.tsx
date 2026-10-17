@@ -30,6 +30,7 @@ import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { LevelUpModal } from './components/common/LevelUpModal';
 import { InteractiveTutorial } from './components/tutorial/InteractiveTutorial';
+import { InstallModal } from './components/install/InstallModal';
 
 export const App: React.FC = () => {
   const [gameState, setGameState] = useState<SystemReawakenState>(() => loadGameState());
@@ -37,9 +38,33 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isCreateQuestOpen, setIsCreateQuestOpen] = useState<boolean>(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(false);
+  const [isInstallOpen, setIsInstallOpen] = useState<boolean>(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpResult | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
+
+  // Listen for native PWA beforeinstallprompt event
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleNativeInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setIsInstallOpen(false);
+      }
+    }
+  };
 
   // Auto-save on every state change
   useEffect(() => {
@@ -590,6 +615,8 @@ export const App: React.FC = () => {
         updateAvailable={updateAvailable}
         onApplyUpdate={handleApplyUpdate}
         onOpenTutorial={() => setIsTutorialOpen(true)}
+        onOpenInstall={() => setIsInstallOpen(true)}
+        canInstall={!!deferredPrompt}
       />
 
       {/* Main View Screen Container */}
@@ -779,6 +806,14 @@ export const App: React.FC = () => {
           onClose={() => setPendingLevelUp(null)}
         />
       )}
+
+      {/* Standalone PWA & Native Install Protocol Modal */}
+      <InstallModal
+        isOpen={isInstallOpen}
+        onClose={() => setIsInstallOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onNativeInstall={handleNativeInstall}
+      />
     </div>
   );
 };

@@ -13,6 +13,8 @@ interface HeaderProps {
   updateAvailable?: boolean;
   onApplyUpdate?: () => void;
   onOpenTutorial: () => void;
+  onOpenInstall?: () => void;
+  canInstall?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,7 +27,9 @@ export const Header: React.FC<HeaderProps> = ({
   syncStatus,
   updateAvailable,
   onApplyUpdate,
-  onOpenTutorial
+  onOpenTutorial,
+  onOpenInstall,
+  canInstall
 }) => {
   const [ambientActive, setAmbientActive] = useState<boolean>(false);
 
@@ -131,6 +135,22 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Audio, Tutorial & System Controls */}
         <div className="header-controls">
+          {onOpenInstall && (
+            <button
+              className="hud-icon-btn install-header-btn"
+              onClick={onOpenInstall}
+              title="Install SYSTEM REAWAKEN as Mobile or PC App"
+              aria-label="Install App"
+              style={{
+                borderColor: '#00f0ff',
+                color: '#00f0ff',
+                boxShadow: canInstall ? '0 0 14px rgba(0, 240, 255, 0.45)' : 'none'
+              }}
+            >
+              📲 INSTALL
+            </button>
+          )}
+
           <button
             className="hud-icon-btn guide-btn"
             onClick={onOpenTutorial}
