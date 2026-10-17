@@ -66,6 +66,9 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'bosses', label: 'BOSS RAIDS', icon: '🗡️' },
     { id: 'skill-tree', label: 'SKILLS', icon: '🌳' },
     { id: 'fitness', label: 'FITNESS', icon: '🏋️' },
+    { id: 'multiplayer', label: 'ALLIES', icon: '👥' },
+    { id: 'competitions', label: 'ARENA', icon: '🏆' },
+    { id: 'companion', label: 'COMPANION', icon: '🎙️' },
     { id: 'verification', label: 'VERIFICATION', icon: '🛡️' },
     { id: 'analytics', label: 'ANALYTICS', icon: '📊' }
   ];

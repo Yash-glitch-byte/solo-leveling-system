@@ -35,9 +35,18 @@ export interface QuestSubtask {
 }
 
 export type VerificationTier = 'self_reported' | 'evidence_attached' | 'sensor_supported' | 'verified_milestone';
+export type VerificationStatus = 'self_reported' | 'supported' | 'verified';
+
+export interface QuestQuiz {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
 
 export interface QuestVerification {
   tier: VerificationTier;
+  status?: VerificationStatus;
   evidenceUrl?: string;
   notes?: string;
   heartRateAvgBpm?: number;
@@ -62,6 +71,9 @@ export interface Quest {
   completedAt?: string;
   completionNotes?: string;
   verification?: QuestVerification;
+  verificationStatus?: VerificationStatus;
+  verificationTier?: string;
+  quiz?: QuestQuiz;
   isDaily: boolean;
   isWeekly?: boolean;
   isMainQuest?: boolean;
@@ -281,7 +293,88 @@ export interface GameSettings {
   accentColor: 'cyan' | 'electric-purple' | 'amber' | 'emerald';
 }
 
+// ==========================================
+// MULTIPLAYER, FRIENDS & PRIVACY PROTOCOLS
+// ==========================================
+export interface PlayerPrivacySettings {
+  isPublic: boolean;
+  shareActivity: boolean;
+  showOnlineStatus: boolean;
+  shareStats: boolean;
+}
+
+export interface HunterFriend {
+  id: string;
+  hunterId: string;
+  name: string;
+  alias: string;
+  avatarIcon: string;
+  rank: HunterRank;
+  level: number;
+  stats: Partial<AttributeStats>;
+  status: 'online' | 'in_dungeon' | 'offline';
+  lastActive: string;
+  isBlocked?: boolean;
+  friendshipStatus: 'friend' | 'pending_incoming' | 'pending_outgoing';
+}
+
+// ==========================================
+// COMPETITIONS, CHALLENGES & LEADERBOARDS
+// ==========================================
+export interface CompetitionParticipant {
+  hunterId: string;
+  name: string;
+  hunterName?: string;
+  avatarIcon: string;
+  rank: HunterRank;
+  score: number;
+  verifiedActions: number;
+  verifiedCompletions?: number;
+  selfReportedActions: number;
+  isCurrentUser?: boolean;
+}
+
+export interface Competition {
+  id: string;
+  title: string;
+  description: string;
+  category: QuestCategory | 'all';
+  startDate: string;
+  endDate: string;
+  status: 'active' | 'upcoming' | 'completed';
+  rules: string;
+  scoringCriteria: string;
+  participants: CompetitionParticipant[];
+  rewardXp: number;
+  rewardTitle?: string;
+  claimed?: boolean;
+  joined: boolean;
+}
+
+// ==========================================
+// BATCH EVIDENCE & VERIFICATION AUDITING
+// ==========================================
+export interface BatchEvidenceSubmission {
+  id: string;
+  questIds: string[];
+  evidenceType: 'quiz' | 'reflection' | 'code_url' | 'workout_log' | 'photo';
+  title: string;
+  details: string;
+  timestamp: number;
+  status: VerificationStatus;
+  verificationTier?: VerificationStatus;
+  xpAwarded: number;
+}
+
+export interface SyncQueueItem {
+  id: string;
+  action: string;
+  payload: any;
+  timestamp: number;
+}
+
 export interface PlayerProfile {
+  hunterId?: string;
   name: string;
   alias: string;
   avatarSeed: string;
@@ -309,6 +402,14 @@ export interface PlayerProfile {
   dungeonsClearedToday?: number;
   dailyDungeonQuota?: number;
   dungeonQuotaBonusClaimed?: boolean;
+  privacySettings?: PlayerPrivacySettings;
+  voiceCompanionOptIn?: boolean;
+  multiplayerOptIn?: boolean;
+  reminderSettings?: {
+    hydration: boolean;
+    dailyQuests: boolean;
+    review: boolean;
+  };
 }
 
 export interface SystemReawakenState {
@@ -331,6 +432,10 @@ export interface SystemReawakenState {
   workoutLogs: WorkoutLogEntry[];
   history: DailyActivityRecord[];
   settings: GameSettings;
+  friends: HunterFriend[];
+  competitions: Competition[];
+  batchSubmissions: BatchEvidenceSubmission[];
+  syncQueue: SyncQueueItem[];
   systemNotifications: Array<{
     id: string;
     timestamp: number;

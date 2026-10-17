@@ -574,7 +574,14 @@ export const DEFAULT_STARTER_QUESTS: Quest[] = [
     attributePoints: 2,
     status: 'available',
     isDaily: true,
-    verification: { tier: 'evidence_attached' }
+    verification: { tier: 'evidence_attached' },
+    verificationStatus: 'supported',
+    quiz: {
+      question: 'What is the optimal time complexity of finding two numbers with a target sum in a sorted array using Two-Pointers?',
+      options: ['O(N^2)', 'O(N log N)', 'O(N)', 'O(1)'],
+      correctIndex: 2,
+      explanation: 'Two pointers starting at opposite ends converge in a single pass O(N) without nested iterations.'
+    }
   },
   {
     id: 'q-starter-3',
@@ -593,7 +600,8 @@ export const DEFAULT_STARTER_QUESTS: Quest[] = [
     attributePoints: 1,
     status: 'available',
     isDaily: true,
-    verification: { tier: 'self_reported' }
+    verification: { tier: 'self_reported' },
+    verificationStatus: 'self_reported'
   },
   {
     id: 'q-starter-4',
@@ -611,13 +619,107 @@ export const DEFAULT_STARTER_QUESTS: Quest[] = [
     attributePoints: 2,
     status: 'available',
     isDaily: true,
-    verification: { tier: 'verified_milestone' }
+    verification: { tier: 'verified_milestone' },
+    verificationStatus: 'supported',
+    quiz: {
+      question: 'What is the primary cognitive benefit of single-task 25-minute deep focus chambers?',
+      options: [
+        'Minimizing attention residue from task switching',
+        'Bypassing the need for physical sleep',
+        'Instant photographic memory',
+        'Reducing physical calorie burn'
+      ],
+      correctIndex: 0,
+      explanation: 'Unbroken single-task focus prevents cognitive residue from context switching, dramatically raising comprehension.'
+    }
+  }
+];
+
+export const DEFAULT_COMPETITIONS: any[] = [
+  {
+    id: 'comp-7day-sprint',
+    title: '7-Day Code & Systems Marathon',
+    description: 'Solve algorithmic challenges and ship verified software modules. Code links and knowledge quizzes score maximum points.',
+    category: 'coding',
+    startDate: getTodayString(),
+    endDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    status: 'active',
+    rules: 'Self-reported tasks award 30 pts. Supported tasks with problem summaries/quizzes award 70 pts. Sensor or verified code submissions award 100 pts.',
+    scoringCriteria: 'Verified: 100 pts | Supported: 70 pts | Self-Report: 30 pts',
+    rewardXp: 250,
+    rewardTitle: 'Code Sovereign',
+    joined: true,
+    participants: [
+      {
+        hunterId: 'HNT-ME',
+        name: 'You (The Monarch)',
+        avatarIcon: '⚡',
+        rank: 'E-Rank',
+        score: 100,
+        verifiedActions: 1,
+        selfReportedActions: 0,
+        isCurrentUser: true
+      }
+    ]
+  },
+  {
+    id: 'comp-focus-decathlon',
+    title: 'Instant Dungeon Focus Decathlon',
+    description: 'Sustain uninterrupted deep work focus blocks in Instant Dungeons without breaking cadence.',
+    category: 'study',
+    startDate: getTodayString(),
+    endDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
+    status: 'active',
+    rules: 'Each 25m cleared Instant Dungeon logs 100 competition points. Anti-cheat timers enforced.',
+    scoringCriteria: 'Full Dungeon Clear: 100 pts | 15m Sprint: 50 pts',
+    rewardXp: 300,
+    rewardTitle: 'Deep Sovereign',
+    joined: false,
+    participants: [
+      {
+        hunterId: 'HNT-ME',
+        name: 'You',
+        avatarIcon: '⚡',
+        rank: 'E-Rank',
+        score: 0,
+        verifiedActions: 0,
+        selfReportedActions: 0,
+        isCurrentUser: true
+      }
+    ]
+  },
+  {
+    id: 'comp-fitness-circuit',
+    title: 'Physical Might & Conditioning League',
+    description: 'Complete push-up circuits and bodyweight conditioning sessions. Structured logs and verified sets award full points.',
+    category: 'fitness',
+    startDate: getTodayString(),
+    endDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+    status: 'active',
+    rules: 'Complete 4/4 push-up sets for 100 pts. Structured logs required.',
+    scoringCriteria: 'Logged 4-set Circuit: 100 pts | Self-report: 30 pts',
+    rewardXp: 280,
+    rewardTitle: 'Titan Candidate',
+    joined: true,
+    participants: [
+      {
+        hunterId: 'HNT-ME',
+        name: 'You',
+        avatarIcon: '⚡',
+        rank: 'E-Rank',
+        score: 100,
+        verifiedActions: 1,
+        selfReportedActions: 0,
+        isCurrentUser: true
+      }
+    ]
   }
 ];
 
 export const DEFAULT_STATE: SystemReawakenState = {
   version: 2,
   player: {
+    hunterId: 'HNT-7790',
     name: 'Player',
     alias: 'Shadow Monarch',
     avatarSeed: 'reawaken-default',
@@ -656,7 +758,20 @@ export const DEFAULT_STATE: SystemReawakenState = {
     isOnboarded: false,
     dungeonsClearedToday: 0,
     dailyDungeonQuota: 2,
-    dungeonQuotaBonusClaimed: false
+    dungeonQuotaBonusClaimed: false,
+    privacySettings: {
+      isPublic: true,
+      shareActivity: true,
+      showOnlineStatus: true,
+      shareStats: true
+    },
+    voiceCompanionOptIn: false,
+    multiplayerOptIn: true,
+    reminderSettings: {
+      hydration: true,
+      dailyQuests: true,
+      review: true
+    }
   },
   quests: DEFAULT_STARTER_QUESTS,
   inventory: DEFAULT_INVENTORY_ITEMS,
@@ -692,6 +807,10 @@ export const DEFAULT_STATE: SystemReawakenState = {
     autoSaveIntervalSec: 10,
     accentColor: 'cyan'
   },
+  friends: [],
+  competitions: DEFAULT_COMPETITIONS,
+  batchSubmissions: [],
+  syncQueue: [],
   systemNotifications: [
     {
       id: 'sys-init',
@@ -811,6 +930,10 @@ export function loadGameState(): SystemReawakenState {
       achievements: Array.isArray(parsed.achievements) && parsed.achievements.length > 0 ? parsed.achievements : DEFAULT_ACHIEVEMENTS,
       workoutLogs: Array.isArray(parsed.workoutLogs) ? parsed.workoutLogs : [],
       history: Array.isArray(parsed.history) ? parsed.history : DEFAULT_STATE.history,
+      friends: Array.isArray(parsed.friends) ? parsed.friends : [],
+      competitions: Array.isArray(parsed.competitions) && parsed.competitions.length > 0 ? parsed.competitions : DEFAULT_COMPETITIONS,
+      batchSubmissions: Array.isArray(parsed.batchSubmissions) ? parsed.batchSubmissions : [],
+      syncQueue: Array.isArray(parsed.syncQueue) ? parsed.syncQueue : [],
       systemNotifications: Array.isArray(parsed.systemNotifications) ? parsed.systemNotifications : DEFAULT_STATE.systemNotifications
     };
   } catch (err) {

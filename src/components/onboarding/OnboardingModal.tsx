@@ -8,10 +8,10 @@ interface OnboardingModalProps {
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
   const [step, setStep] = useState<number>(1);
-  const [name, setName] = useState<string>('Sung Jin-woo');
-  const [alias, setAlias] = useState<string>('Shadow Sovereign');
+  const [name, setName] = useState<string>('Hunter');
+  const [alias, setAlias] = useState<string>('The Awakened One');
   const [avatarIcon, setAvatarIcon] = useState<string>('⚡');
-  const [mainGoal, setMainGoal] = useState<string>('Master full-stack programming, crush DSA algorithms, and forge peak physical strength.');
+  const [mainGoal, setMainGoal] = useState<string>('Master software engineering, crush daily workout circuits, and forge unbreakable personal discipline.');
   const [selectedCategories, setSelectedCategories] = useState<QuestCategory[]>([
     'fitness',
     'coding',
@@ -21,16 +21,21 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
   const [dailyMinutes, setDailyMinutes] = useState<number>(60);
   const [difficulty, setDifficulty] = useState<QuestDifficulty>('normal');
   const [campaignChoice, setCampaignChoice] = useState<'21-day' | '66-day'>('21-day');
+  const [routineFocus, setRoutineFocus] = useState<'morning_sprint' | 'balanced' | 'evening_flow'>('balanced');
+  const [voiceCompanionOptIn, setVoiceCompanionOptIn] = useState<boolean>(false); // Silent by default as mandated
+  const [multiplayerOptIn, setMultiplayerOptIn] = useState<boolean>(true);
+  const [hydrationReminder, setHydrationReminder] = useState<boolean>(true);
+  const [taskReminder, setTaskReminder] = useState<boolean>(true);
 
-  const avatarOptions = ['⚡', '🗡️', '👑', '🔥', '🐺', '🛡️', '🧬', '🌌'];
+  const avatarOptions = ['⚡', '🗡️', '👑', '🔥', '🐺', '🛡️', '🧬', '🌌', '🏹', '💎'];
 
   const categoryOptions: { key: QuestCategory; label: string; icon: string }[] = [
-    { key: 'fitness', label: 'Fitness & Physical Health', icon: '🏋️' },
-    { key: 'coding', label: 'Programming & Tech Systems', icon: '💻' },
+    { key: 'fitness', label: 'Fitness & Physical Power', icon: '🏋️' },
+    { key: 'coding', label: 'Programming & System Architecture', icon: '💻' },
     { key: 'study', label: 'Academic & Deep Study', icon: '📚' },
-    { key: 'career', label: 'Career, Resume & Interviews', icon: '💼' },
-    { key: 'discipline', label: 'Discipline, Sleep & Routine', icon: '⏱️' },
-    { key: 'communication', label: 'Communication & Speaking', icon: '🎙️' }
+    { key: 'career', label: 'Career, Portfolio & Interviews', icon: '💼' },
+    { key: 'discipline', label: 'Discipline, Routine & Sleep', icon: '⏱️' },
+    { key: 'communication', label: 'Public Speaking & Writing', icon: '🎙️' }
   ];
 
   const toggleCategory = (cat: QuestCategory) => {
@@ -54,6 +59,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
       selectedCategories,
       preferredTimePerDayMinutes: dailyMinutes,
       preferredDifficulty: difficulty,
+      voiceCompanionOptIn,
+      multiplayerOptIn,
+      reminderSettings: {
+        hydration: hydrationReminder,
+        dailyQuests: taskReminder,
+        review: true
+      },
+      privacySettings: {
+        isPublic: multiplayerOptIn,
+        shareActivity: multiplayerOptIn,
+        showOnlineStatus: multiplayerOptIn,
+        shareStats: true
+      },
       isOnboarded: true
     });
   };
@@ -70,14 +88,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
           <h2 className="onboarding-title">
             {step === 1 && 'STEP 1: IDENTITY REGISTRATION'}
             {step === 2 && 'STEP 2: TARGET OBJECTIVES'}
-            {step === 3 && 'STEP 3: COMMITMENT & CAMPAIGN'}
-            {step === 4 && 'STEP 4: SYSTEM REAWAKEN INITIALIZATION'}
+            {step === 3 && 'STEP 3: COMMITMENT & ROUTINE FOCUS'}
+            {step === 4 && 'STEP 4: SYSTEM PREFERENCES & OPT-INS'}
+            {step === 5 && 'STEP 5: SYSTEM MECHANICS & INITIALIZATION'}
           </h2>
           <div className="step-indicator">
             <span className={`step-dot ${step >= 1 ? 'active' : ''}`} />
             <span className={`step-dot ${step >= 2 ? 'active' : ''}`} />
             <span className={`step-dot ${step >= 3 ? 'active' : ''}`} />
             <span className={`step-dot ${step >= 4 ? 'active' : ''}`} />
+            <span className={`step-dot ${step >= 5 ? 'active' : ''}`} />
           </div>
         </div>
 
@@ -170,11 +190,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
           </div>
         )}
 
-        {/* Step 3: Commitment & Difficulty */}
+        {/* Step 3: Commitment & Routine Focus */}
         {step === 3 && (
           <div className="onboarding-body">
             <p className="onboarding-desc">
-              Calibrate your daily commitment capacity. The System rewards consistency over reckless overexertion.
+              Calibrate your daily commitment capacity and optimal workflow rhythm. The System rewards consistency over reckless overexertion.
             </p>
 
             <div className="form-group">
@@ -196,6 +216,45 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
             </div>
 
             <div className="form-group">
+              <label>Daily Routine & Prime Energy Window</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                <button
+                  type="button"
+                  className={`diff-btn ${routineFocus === 'morning_sprint' ? 'selected' : ''}`}
+                  onClick={() => {
+                    soundEngine.playPing();
+                    setRoutineFocus('morning_sprint');
+                  }}
+                  style={{ padding: '8px 4px', fontSize: '0.78rem' }}
+                >
+                  🌅 Morning Sprint
+                </button>
+                <button
+                  type="button"
+                  className={`diff-btn ${routineFocus === 'balanced' ? 'selected' : ''}`}
+                  onClick={() => {
+                    soundEngine.playPing();
+                    setRoutineFocus('balanced');
+                  }}
+                  style={{ padding: '8px 4px', fontSize: '0.78rem' }}
+                >
+                  ⚖️ Balanced Flow
+                </button>
+                <button
+                  type="button"
+                  className={`diff-btn ${routineFocus === 'evening_flow' ? 'selected' : ''}`}
+                  onClick={() => {
+                    soundEngine.playPing();
+                    setRoutineFocus('evening_flow');
+                  }}
+                  style={{ padding: '8px 4px', fontSize: '0.78rem' }}
+                >
+                  🌙 Evening Focus
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group">
               <label>Starting Challenge Campaign</label>
               <div className="campaign-choice-row">
                 <button
@@ -208,7 +267,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
                 >
                   <div className="card-badge">21 DAYS</div>
                   <h4>Habit Awakening</h4>
-                  <p>Establish indestructible morning discipline & momentum.</p>
+                  <p>Establish indestructible daily discipline & momentum.</p>
                 </button>
 
                 <button
@@ -221,7 +280,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
                 >
                   <div className="card-badge">66 DAYS</div>
                   <h4>Complete Evolution</h4>
-                  <p>Full cognitive rewiring and mastery-level compound growth.</p>
+                  <p>Full cognitive rewiring and compound mastery.</p>
                 </button>
               </div>
             </div>
@@ -247,16 +306,119 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
           </div>
         )}
 
-        {/* Step 4: Final Confirmation */}
+        {/* Step 4: System Preferences & Opt-Ins */}
         {step === 4 && (
+          <div className="onboarding-body">
+            <p className="onboarding-desc">
+              Configure communication, notifications, and social competition preferences. You can adjust all settings at any time.
+            </p>
+
+            {/* Voice Companion Opt-In (Silent by Default) */}
+            <div style={{ background: 'rgba(0, 210, 255, 0.05)', border: '1px solid rgba(0, 210, 255, 0.2)', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <strong style={{ color: '#00f0ff', fontSize: '0.88rem', display: 'block' }}>
+                    🎙️ AI Voice Companion
+                  </strong>
+                  <span style={{ fontSize: '0.74rem', color: '#7f9ebc' }}>
+                    Conversational voice assistant with speech recognition. (Silent by default).
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={`diff-btn ${voiceCompanionOptIn ? 'selected' : ''}`}
+                  onClick={() => {
+                    soundEngine.playPing();
+                    setVoiceCompanionOptIn(!voiceCompanionOptIn);
+                  }}
+                  style={{ minWidth: '70px', padding: '6px 12px' }}
+                >
+                  {voiceCompanionOptIn ? 'ENABLED' : 'OFF (SILENT)'}
+                </button>
+              </div>
+            </div>
+
+            {/* Multiplayer & Competitions Opt-In */}
+            <div style={{ background: 'rgba(168, 85, 247, 0.05)', border: '1px solid rgba(168, 85, 247, 0.2)', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <strong style={{ color: '#c084fc', fontSize: '0.88rem', display: 'block' }}>
+                    🏆 Multiplayer & Arena Competitions
+                  </strong>
+                  <span style={{ fontSize: '0.74rem', color: '#7f9ebc' }}>
+                    Participate in challenges, connect with friends, and view leaderboards.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={`diff-btn ${multiplayerOptIn ? 'selected' : ''}`}
+                  onClick={() => {
+                    soundEngine.playPing();
+                    setMultiplayerOptIn(!multiplayerOptIn);
+                  }}
+                  style={{ minWidth: '70px', padding: '6px 12px' }}
+                >
+                  {multiplayerOptIn ? 'OPT-IN' : 'SOLO ONLY'}
+                </button>
+              </div>
+            </div>
+
+            {/* Reminders & Notifications */}
+            <div style={{ background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', padding: '12px' }}>
+              <strong style={{ color: '#34d399', fontSize: '0.88rem', display: 'block', marginBottom: '8px' }}>
+                🔔 Biological & Quest Reminders
+              </strong>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#e0f2fe', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={hydrationReminder}
+                    onChange={e => setHydrationReminder(e.target.checked)}
+                  />
+                  <span>💧 Hydration Alert: 250ml water reminders every 45 mins</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#e0f2fe', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={taskReminder}
+                    onChange={e => setTaskReminder(e.target.checked)}
+                  />
+                  <span>📜 Daily Quests: Pending mission notices before evening</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: System Mechanics Briefing & Ceremony */}
+        {step === 5 && (
           <div className="onboarding-body ceremony-screen">
             <div className="ceremony-icon-glow">{avatarIcon}</div>
-            <h3 className="ceremony-subtitle">HUNTER IDENTITY REGISTERED</h3>
-            <p className="ceremony-text">
-              Welcome, <strong>{name}</strong> [<em>{alias}</em>].
-              <br />
-              Starting Level: <strong>1 (E-Rank)</strong>. Your customized starter quests, Instant Dungeons, and habit campaigns have been provisioned in your local status matrix.
+            <h3 className="ceremony-subtitle">HUNTER MATRIX CALIBRATED</h3>
+            <p className="ceremony-text" style={{ marginBottom: '12px' }}>
+              Welcome, <strong>{name}</strong> [<em>{alias}</em>]. Starting Rank: <strong>E-Rank (LV.1)</strong>.
             </p>
+
+            {/* Core Game Mechanics Briefing */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', textAlign: 'left', marginBottom: '14px' }}>
+              <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid rgba(0, 210, 255, 0.2)', borderRadius: '6px', padding: '8px' }}>
+                <strong style={{ color: '#00f0ff', fontSize: '0.78rem', display: 'block' }}>⚡ XP & Levels</strong>
+                <span style={{ color: '#7f9ebc', fontSize: '0.72rem' }}>Earn XP by completing real-world missions. Level up to increase ranks.</span>
+              </div>
+              <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid rgba(0, 210, 255, 0.2)', borderRadius: '6px', padding: '8px' }}>
+                <strong style={{ color: '#00f0ff', fontSize: '0.78rem', display: 'block' }}>💍 The E-Ring & Gear</strong>
+                <span style={{ color: '#7f9ebc', fontSize: '0.72rem' }}>Auto-equipped origin relic shielding you against burnout fatigue.</span>
+              </div>
+              <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid rgba(0, 210, 255, 0.2)', borderRadius: '6px', padding: '8px' }}>
+                <strong style={{ color: '#00f0ff', fontSize: '0.78rem', display: 'block' }}>🗝️ Instant Dungeons</strong>
+                <span style={{ color: '#7f9ebc', fontSize: '0.72rem' }}>Sealed 25m focus chambers for deep work and exam revision.</span>
+              </div>
+              <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid rgba(0, 210, 255, 0.2)', borderRadius: '6px', padding: '8px' }}>
+                <strong style={{ color: '#00f0ff', fontSize: '0.78rem', display: 'block' }}>🛡️ Honest Verification</strong>
+                <span style={{ color: '#7f9ebc', fontSize: '0.72rem' }}>Quizzes, logs, and optional photos ensure genuine personal growth.</span>
+              </div>
+            </div>
+
             <div className="ceremony-quote">
               “Your previous limits no longer apply. Stand up and awaken.”
             </div>
@@ -278,7 +440,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
             </button>
           )}
 
-          {step < 4 ? (
+          {step < 5 ? (
             <button
               type="button"
               className="hud-btn-primary next-btn"

@@ -8,7 +8,11 @@ import {
   PlayerProfile,
   EquipmentItem,
   EquippedGear,
-  BleWearableState
+  BleWearableState,
+  HunterFriend,
+  Competition,
+  BatchEvidenceSubmission,
+  PlayerPrivacySettings
 } from './types';
 import { loadGameState, saveGameState } from './storage';
 import { processXpGain, LevelUpResult } from './game/progression';
@@ -35,6 +39,10 @@ import { ShadowVoiceWidget } from './components/monarch/ShadowVoiceWidget';
 import { QuestCombatVerificationModal } from './components/verification/QuestCombatVerificationModal';
 import { EditProfileModal } from './components/profile/EditProfileModal';
 import { LootDropModal, LootReward } from './components/loot/LootDropModal';
+import { MultiplayerHub } from './components/multiplayer/MultiplayerHub';
+import { CompetitionHub } from './components/competitions/CompetitionHub';
+import { VoiceCompanionView } from './components/voice/VoiceCompanionView';
+import { BatchEvidenceModal } from './components/verification/BatchEvidenceModal';
 import { shadowVoice } from './game/voiceAssistant';
 
 export const App: React.FC = () => {
@@ -42,12 +50,13 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isCreateQuestOpen, setIsCreateQuestOpen] = useState<boolean>(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(false);
   const [isInstallOpen, setIsInstallOpen] = useState<boolean>(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState<boolean>(false);
   const [lootRewardSource, setLootRewardSource] = useState<string | null>(null);
   const [verifyingQuest, setVerifyingQuest] = useState<Quest | null>(null);
-  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(() => gameState.player.voiceCompanionOptIn ?? false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpResult | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
@@ -201,11 +210,6 @@ export const App: React.FC = () => {
     if (didLevelUp) {
       soundEngine.playLevelUp();
       setPendingLevelUp(result);
-      if (voiceEnabled) {
-        shadowVoice.announceLevelUp(result.newLevel);
-      }
-    } else if (voiceEnabled) {
-      shadowVoice.announceTaskComplete(quest.title);
     }
 
     if (fullReward) {
@@ -694,6 +698,205 @@ export const App: React.FC = () => {
     }));
   };
 
+  // Multiplayer Connection Handlers
+  const handleUpdatePrivacy = (settings: Partial<PlayerPrivacySettings>) => {
+    soundEngine.playPing();
+    setGameState(prev => ({
+      ...prev,
+      player: {
+        ...prev.player,
+        privacySettings: {
+          ...(prev.player.privacySettings || {
+            isPublic: true,
+            shareActivity: true,
+            showOnlineStatus: true,
+            shareStats: true
+          }),
+          ...settings
+        }
+      }
+    }));
+  };
+
+  const handleAddFriend = (newFriend: HunterFriend) => {
+    setGameState(prev => ({
+      ...prev,
+      friends: [newFriend, ...(prev.friends || [])]
+    }));
+  };
+
+  const handleRemoveFriend = (friendId: string) => {
+    soundEngine.playPing();
+    setGameState(prev => ({
+      ...prev,
+      friends: (prev.friends || []).filter(f => f.id !== friendId)
+    }));
+  };
+
+  const handleAcceptFriend = (friendId: string) => {
+    soundEngine.playLevelUp();
+    setGameState(prev => ({
+      ...prev,
+      friends: (prev.friends || []).map(f =>
+        f.id === friendId ? { ...f, friendshipStatus: 'friend' as const } : f
+      )
+    }));
+  };
+
+  const handleBlockFriend = (friendId: string) => {
+    soundEngine.playPing();
+    setGameState(prev => ({
+      ...prev,
+      friends: (prev.friends || []).map(f =>
+        f.id === friendId ? { ...f, isBlocked: !f.isBlocked } : f
+      )
+    }));
+  };
+
+  // Competition Arena Handlers
+  const handleJoinCompetition = (compId: string) => {
+    soundEngine.playLevelUp();
+    setGameState(prev => ({
+      ...prev,
+      competitions: (prev.competitions || []).map(c => {
+        if (c.id !== compId) return c;
+        if (c.participants.some(p => p.isCurrentUser)) return { ...c, joined: true };
+        return {
+          ...c,
+          joined: true,
+          participants: [
+            ...c.participants,
+            {
+              hunterId: prev.player.hunterId || 'HNT-7790',
+              name: prev.player.name,
+              avatarIcon: prev.player.avatarIcon || '⚡',
+              rank: prev.player.rank,
+              score: 0,
+              verifiedActions: 0,
+              selfReportedActions: 0,
+              isCurrentUser: true
+            }
+          ]
+        };
+      })
+    }));
+  };
+
+  const handleClaimVictoryReward = (compId: string) => {
+    const comp = (gameState.competitions || []).find(c => c.id === compId);
+    if (!comp) return;
+    soundEngine.playLevelUp();
+    const { didLevelUp, result } = processXpGain(
+      gameState.player.level,
+      gameState.player.currentXp,
+      comp.rewardXp
+    );
+    if (didLevelUp) setPendingLevelUp(result);
+
+    setGameState(prev => ({
+      ...prev,
+      competitions: (prev.competitions || []).map(c =>
+        c.id === compId ? { ...c, status: 'completed' as const } : c
+      ),
+      player: {
+        ...prev.player,
+        level: result.newLevel,
+        rank: result.newRank,
+        currentXp: result.remainingXp,
+        requiredXp: result.newRequiredXp,
+        statPoints: prev.player.statPoints + result.statPointsAwarded + 2,
+        title: comp.rewardTitle || prev.player.title
+      }
+    }));
+  };
+
+  const handleCreateCompetition = (newComp: Competition) => {
+    soundEngine.playLevelUp();
+    setGameState(prev => ({
+      ...prev,
+      competitions: [newComp, ...(prev.competitions || [])]
+    }));
+  };
+
+  // Batch Evidence Submission Handler (Multi-Quest Completion)
+  const handleSubmitBatchEvidence = (submission: BatchEvidenceSubmission) => {
+    soundEngine.playLevelUp();
+    const verifStatus = submission.status || submission.verificationTier || 'supported';
+    const selectedQuests = gameState.quests.filter(q => submission.questIds.includes(q.id));
+    let totalBatchXp = 0;
+    selectedQuests.forEach(q => {
+      const xpMult = (gameState.monarch.unlocked && gameState.monarch.authorityActive) ? 1.15 : 1.0;
+      const baseReward = verifStatus === 'verified'
+        ? q.xpReward
+        : verifStatus === 'supported'
+        ? Math.round(q.xpReward * 0.7)
+        : Math.round(q.xpReward * 0.3);
+      totalBatchXp += Math.round(baseReward * xpMult);
+    });
+
+    const { didLevelUp, result } = processXpGain(
+      gameState.player.level,
+      gameState.player.currentXp,
+      totalBatchXp
+    );
+    if (didLevelUp) setPendingLevelUp(result);
+
+    // Update active competitions if categories align
+    const updatedComps = (gameState.competitions || []).map(comp => {
+      if (comp.status !== 'active' || !comp.joined) return comp;
+      const matches = selectedQuests.some(q => q.category === comp.category);
+      if (!matches) return comp;
+      const ptsToAdd = verifStatus === 'verified' ? 100 : verifStatus === 'supported' ? 70 : 30;
+      return {
+        ...comp,
+        participants: comp.participants.map(p =>
+          p.isCurrentUser
+            ? {
+                ...p,
+                score: p.score + ptsToAdd * selectedQuests.length,
+                verifiedActions: p.verifiedActions + (verifStatus === 'verified' ? selectedQuests.length : 0),
+                selfReportedActions: p.selfReportedActions + (verifStatus !== 'verified' ? selectedQuests.length : 0)
+              }
+            : p
+        )
+      };
+    });
+
+    setGameState(prev => {
+      const updatedQuests = prev.quests.map(q => {
+        if (!submission.questIds.includes(q.id)) return q;
+        return {
+          ...q,
+          status: 'completed' as const,
+          completedAt: new Date().toISOString(),
+          verificationTier: verifStatus === 'verified' ? ('sensor_verified' as const) : ('self_reported' as const),
+          verificationStatus: verifStatus,
+          completionNotes: `[Batch Evidence: ${submission.title}] ${submission.details}`
+        };
+      });
+
+      return {
+        ...prev,
+        quests: updatedQuests,
+        competitions: updatedComps,
+        batchSubmissions: [submission, ...(prev.batchSubmissions || [])],
+        player: {
+          ...prev.player,
+          level: result.newLevel,
+          rank: result.newRank,
+          currentXp: result.remainingXp,
+          requiredXp: result.newRequiredXp,
+          statPoints: prev.player.statPoints + result.statPointsAwarded,
+          totalQuestsCompleted: prev.player.totalQuestsCompleted + selectedQuests.length,
+          fatigue: Math.max(0, prev.player.fatigue - 10)
+        }
+      };
+    });
+
+    setIsBatchModalOpen(false);
+    setLootRewardSource(`Batch Verification: ${submission.title}`);
+  };
+
   const activeCampaign = gameState.campaigns.find(c => c.id === gameState.activeCampaignId) || gameState.campaigns[0];
 
   return (
@@ -748,6 +951,7 @@ export const App: React.FC = () => {
             onDeleteQuest={handleDeleteQuest}
             isCreateModalOpen={isCreateQuestOpen}
             setIsCreateModalOpen={setIsCreateQuestOpen}
+            onOpenBatchEvidence={() => setIsBatchModalOpen(true)}
           />
         )}
 
@@ -813,6 +1017,38 @@ export const App: React.FC = () => {
           />
         )}
 
+        {activeTab === 'multiplayer' && (
+          <MultiplayerHub
+            player={gameState.player}
+            friends={gameState.friends || []}
+            onUpdatePrivacy={handleUpdatePrivacy}
+            onAddFriend={handleAddFriend}
+            onRemoveFriend={handleRemoveFriend}
+            onAcceptFriend={handleAcceptFriend}
+            onBlockFriend={handleBlockFriend}
+          />
+        )}
+
+        {activeTab === 'competitions' && (
+          <CompetitionHub
+            competitions={gameState.competitions || []}
+            player={gameState.player}
+            onJoinCompetition={handleJoinCompetition}
+            onClaimVictoryReward={handleClaimVictoryReward}
+            onCreateCompetition={handleCreateCompetition}
+          />
+        )}
+
+        {activeTab === 'companion' && (
+          <VoiceCompanionView
+            player={gameState.player}
+            quests={gameState.quests}
+            onAddQuest={handleAddQuest}
+            voiceEnabled={voiceEnabled}
+            onToggleVoice={() => setVoiceEnabled(v => !v)}
+          />
+        )}
+
         {activeTab === 'verification' && (
           <VerificationModule
             wearable={gameState.wearable}
@@ -844,6 +1080,27 @@ export const App: React.FC = () => {
         >
           <span className="mob-icon">📜</span>
           <span className="mob-label">Quests</span>
+        </button>
+        <button
+          className={`mob-nav-btn ${activeTab === 'multiplayer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('multiplayer')}
+        >
+          <span className="mob-icon">👥</span>
+          <span className="mob-label">Allies</span>
+        </button>
+        <button
+          className={`mob-nav-btn ${activeTab === 'competitions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('competitions')}
+        >
+          <span className="mob-icon">🏆</span>
+          <span className="mob-label">Arena</span>
+        </button>
+        <button
+          className={`mob-nav-btn ${activeTab === 'companion' ? 'active' : ''}`}
+          onClick={() => setActiveTab('companion')}
+        >
+          <span className="mob-icon">🎙️</span>
+          <span className="mob-label">Voice</span>
         </button>
         <button
           className={`mob-nav-btn ${activeTab === 'dungeons' ? 'active' : ''}`}
@@ -930,19 +1187,22 @@ export const App: React.FC = () => {
         />
       )}
 
+      {/* Real-Life Batch Multi-Quest Evidence Verification Modal */}
+      <BatchEvidenceModal
+        quests={gameState.quests}
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        onSubmitBatch={handleSubmitBatchEvidence}
+      />
+
       {/* Interactive Holographic Voice Guide & Dedication Terminal */}
       <ShadowVoiceWidget
         player={gameState.player}
         quests={gameState.quests}
         voiceEnabled={voiceEnabled}
         onToggleVoice={() => {
-          const next = !voiceEnabled;
-          setVoiceEnabled(next);
-          if (next) {
-            shadowVoice.speak("System Guide audio active. Ready for your command, Hunter.");
-          } else {
-            shadowVoice.speak("Guide communications silenced.");
-          }
+          soundEngine.playPing();
+          setVoiceEnabled(next => !next);
         }}
         onSelectFocusQuest={() => {
           setActiveTab('quests');

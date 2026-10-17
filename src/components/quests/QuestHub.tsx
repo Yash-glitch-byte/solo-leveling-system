@@ -11,6 +11,7 @@ interface QuestHubProps {
   onDeleteQuest: (questId: string) => void;
   isCreateModalOpen: boolean;
   setIsCreateModalOpen: (open: boolean) => void;
+  onOpenBatchEvidence?: () => void;
 }
 
 export const QuestHub: React.FC<QuestHubProps> = ({
@@ -20,7 +21,8 @@ export const QuestHub: React.FC<QuestHubProps> = ({
   onAddQuest,
   onDeleteQuest,
   isCreateModalOpen,
-  setIsCreateModalOpen
+  setIsCreateModalOpen,
+  onOpenBatchEvidence
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -98,15 +100,29 @@ export const QuestHub: React.FC<QuestHubProps> = ({
           <span className="hud-tag">[OBJECTIVES REGISTRY]</span>
           <h2 className="section-title">QUEST & MISSION CENTER</h2>
         </div>
-        <button
-          className="hud-btn-primary add-quest-trigger-btn"
-          onClick={() => {
-            soundEngine.playPing();
-            setIsCreateModalOpen(true);
-          }}
-        >
-          + CREATE CUSTOM QUEST
-        </button>
+        <div className="quest-hub-header-actions" style={{ display: 'flex', gap: '10px' }}>
+          {onOpenBatchEvidence && (
+            <button
+              className="hud-btn-secondary batch-quest-trigger-btn"
+              onClick={() => {
+                soundEngine.playPing();
+                onOpenBatchEvidence();
+              }}
+              title="Submit shared evidence, quiz, or code repo to complete multiple related missions at once"
+            >
+              📦 BATCH EVIDENCE
+            </button>
+          )}
+          <button
+            className="hud-btn-primary add-quest-trigger-btn"
+            onClick={() => {
+              soundEngine.playPing();
+              setIsCreateModalOpen(true);
+            }}
+          >
+            + CREATE CUSTOM QUEST
+          </button>
+        </div>
       </div>
 
       {/* Filter Row */}
@@ -159,6 +175,7 @@ export const QuestHub: React.FC<QuestHubProps> = ({
         ) : (
           filteredQuests.map(q => {
             const isCompleted = q.status === 'completed';
+            const verifStatus = q.verificationStatus || (q.verificationTier === 'sensor_verified' ? 'verified' : q.verificationTier === 'self_reported' ? 'self_reported' : 'supported');
             return (
               <div key={q.id} className={`hud-card quest-card ${isCompleted ? 'quest-done' : ''}`}>
                 <div className="card-corner tl" />
@@ -173,6 +190,11 @@ export const QuestHub: React.FC<QuestHubProps> = ({
                       {q.difficulty.toUpperCase()}
                     </span>
                     {q.isDaily && <span className="badge daily-badge">DAILY</span>}
+                    {isCompleted && (
+                      <span className={`badge verif-status-badge verif-${verifStatus}`}>
+                        {verifStatus === 'verified' ? '🛡️ VERIFIED' : verifStatus === 'supported' ? '📝 SUPPORTED' : '📋 SELF-REPORTED'}
+                      </span>
+                    )}
                   </div>
                   <button
                     className="quest-delete-btn"
