@@ -1,4 +1,4 @@
-// SYSTEM REAWAKEN - Core Type Definitions
+// SYSTEM REAWAKEN - Core Type Definitions (v2.5)
 
 export type HunterRank = 'E-Rank' | 'D-Rank' | 'C-Rank' | 'B-Rank' | 'A-Rank' | 'S-Rank' | 'National Level';
 
@@ -34,6 +34,16 @@ export interface QuestSubtask {
   completed: boolean;
 }
 
+export type VerificationTier = 'self_reported' | 'evidence_attached' | 'sensor_supported' | 'verified_milestone';
+
+export interface QuestVerification {
+  tier: VerificationTier;
+  evidenceUrl?: string;
+  notes?: string;
+  heartRateAvgBpm?: number;
+  verifiedAt?: string;
+}
+
 export interface Quest {
   id: string;
   title: string;
@@ -51,6 +61,7 @@ export interface Quest {
   status: QuestStatus;
   completedAt?: string;
   completionNotes?: string;
+  verification?: QuestVerification;
   isDaily: boolean;
   isWeekly?: boolean;
   isMainQuest?: boolean;
@@ -168,6 +179,7 @@ export interface WorkoutLogEntry {
   exerciseName: string;
   sets: WorkoutSet[];
   durationMinutes: number;
+  avgHeartRate?: number;
   notes?: string;
 }
 
@@ -177,6 +189,85 @@ export interface DailyActivityRecord {
   questsCompleted: number;
   focusMinutes: number;
   categoriesActive: QuestCategory[];
+}
+
+// ==========================================
+// EQUIPMENT & INVENTORY SYSTEM (E-Ring, Weapons, Armor, Relics)
+// ==========================================
+export type EquipmentSlot = 'weapon' | 'armor' | 'ring' | 'accessory';
+export type ItemRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+
+export interface EquipmentItem {
+  id: string;
+  name: string;
+  slot: EquipmentSlot;
+  rarity: ItemRarity;
+  description: string;
+  lore: string;
+  statBonus: Partial<AttributeStats>;
+  specialEffect?: string;
+  isEquipped: boolean;
+  icon: string;
+  unlockedAtLevel?: number;
+}
+
+export interface EquippedGear {
+  weapon: EquipmentItem | null;
+  armor: EquipmentItem | null;
+  ring: EquipmentItem | null;
+  accessory: EquipmentItem | null;
+}
+
+// ==========================================
+// PSEUDO MONARCH SYSTEM
+// ==========================================
+export interface ShadowCommander {
+  id: string;
+  name: string;
+  title: string;
+  lore: string;
+  extracted: boolean;
+  deployed: boolean;
+  statBonus: Partial<AttributeStats>;
+  quote: string;
+  icon: string;
+  requiredBossId?: string;
+  requiredLevel: number;
+}
+
+export interface PseudoMonarchState {
+  unlocked: boolean;
+  unlockedAt?: string;
+  prestigeRank: string;
+  authorityActive: boolean; // Ruler's Authority passive boost
+  domainActive: boolean;    // Shadow Domain fatigue reduction
+  shadows: ShadowCommander[];
+}
+
+// ==========================================
+// WEARABLE & BLE HEART RATE SENSOR
+// ==========================================
+export interface BleWearableState {
+  supported: boolean;
+  connected: boolean;
+  deviceName?: string;
+  currentHeartRate?: number;
+  batteryLevel?: number;
+  lastReadingTime?: number;
+}
+
+// ==========================================
+// CLOUD SYNCHRONIZATION & ACCOUNTS
+// ==========================================
+export type CloudSyncStatus = 'local_only' | 'sync_pending' | 'synced' | 'conflict' | 'offline';
+
+export interface CloudAccount {
+  hunterId: string;
+  username: string;
+  cloudSyncEnabled: boolean;
+  lastSyncedAt?: string;
+  endpointUrl?: string; // Optional custom/Supabase REST endpoint
+  accessToken?: string;
 }
 
 export interface GameSettings {
@@ -221,6 +312,12 @@ export interface SystemReawakenState {
   version: number;
   player: PlayerProfile;
   quests: Quest[];
+  inventory: EquipmentItem[];
+  equippedGear: EquippedGear;
+  monarch: PseudoMonarchState;
+  wearable: BleWearableState;
+  cloudAccount: CloudAccount;
+  syncStatus: CloudSyncStatus;
   activeDungeon: DungeonSession | null;
   dungeonTemplates: DungeonSession[];
   campaigns: Campaign[];

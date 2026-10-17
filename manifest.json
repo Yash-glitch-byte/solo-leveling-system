@@ -1,10 +1,10 @@
 {
-  "name": "Solo Leveling | The System",
-  "short_name": "The System",
-  "description": "Gamified life-tracking and habit quest system inspired by Solo Leveling.",
+  "name": "SYSTEM REAWAKEN — RPG Self-Improvement System",
+  "short_name": "Reawaken",
+  "description": "Cross-platform dark fantasy real-life RPG progression, habit quests, and deep focus dungeons.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#050811",
+  "background_color": "#03060d",
   "theme_color": "#00d2ff",
   "orientation": "portrait-primary",
   "icons": [

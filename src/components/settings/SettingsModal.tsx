@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
-import { GameSettings, SystemReawakenState } from '../../types';
+import React, { useRef, useState } from 'react';
+import { GameSettings, SystemReawakenState, CloudAccount } from '../../types';
 import { exportBackupJSON, importBackupJSON, resetGameStorage } from '../../storage';
+import { syncWithCloud } from '../../storage/cloudSync';
 import { soundEngine } from '../../game/sound';
 
 interface SettingsModalProps {
@@ -19,6 +20,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  // Cloud Account local edits
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(fullState.cloudAccount.cloudSyncEnabled);
+  const [endpointUrl, setEndpointUrl] = useState(fullState.cloudAccount.endpointUrl || '');
+  const [accessToken, setAccessToken] = useState(fullState.cloudAccount.accessToken || '');
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const vol = Number(e.target.value);
@@ -29,6 +37,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleExport = () => {
     soundEngine.playPing();
     exportBackupJSON(fullState);
+  };
+
+  const handleManualSync = async () => {
+    soundEngine.playPing();
+    setSyncing(true);
+    setSyncFeedback(null);
+
+    const updatedState: SystemReawakenState = {
+      ...fullState,
+      cloudAccount: {
+        ...fullState.cloudAccount,
+        cloudSyncEnabled,
+        endpointUrl: endpointUrl.trim() || undefined,
+        accessToken: accessToken.trim() || undefined
+      }
+    };
+
+    const result = await syncWithCloud(updatedState);
+    setSyncing(false);
+    setSyncFeedback(result.message);
+
+    if (result.success && result.mergedState) {
+      soundEngine.playLevelUp();
+      onRestoreState(result.mergedState);
+    }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,13 +103,76 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <div className="modal-header">
           <span className="hud-tag">[SYSTEM PREFERENCES]</span>
-          <h3>SETTINGS & SAVE DATA</h3>
+          <h3>SETTINGS & CLOUD SYNCHRONIZATION</h3>
           <button className="close-modal-btn" onClick={onClose}>
             ✕
           </button>
         </div>
 
         <div className="settings-body">
+          {/* Cloud Sync & Cross-Device Continuation */}
+          <div className="settings-section">
+            <h4 className="section-title">CROSS-DEVICE CLOUD SYNCHRONIZATION</h4>
+            <p className="settings-desc">
+              Synchronize your hunter progression between your Phone and PC without losing levels or stat points.
+            </p>
+
+            <div className="setting-row">
+              <label htmlFor="cloudSyncToggle">Enable Cloud Synchronization</label>
+              <input
+                id="cloudSyncToggle"
+                type="checkbox"
+                checked={cloudSyncEnabled}
+                onChange={e => setCloudSyncEnabled(e.target.checked)}
+                className="hud-checkbox"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Hunter Secret ID (Use same ID on Phone & PC to link saves)</label>
+              <div className="id-copy-row">
+                <input
+                  type="text"
+                  readOnly
+                  value={fullState.cloudAccount.hunterId}
+                  className="hud-input readonly"
+                />
+                <button
+                  type="button"
+                  className="hud-btn-secondary"
+                  onClick={() => {
+                    navigator.clipboard.writeText(fullState.cloudAccount.hunterId);
+                    soundEngine.playPing();
+                    alert('Hunter ID copied to clipboard!');
+                  }}
+                >
+                  📋 COPY
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Optional Custom Supabase / REST Cloud Endpoint</label>
+              <input
+                type="url"
+                value={endpointUrl}
+                onChange={e => setEndpointUrl(e.target.value)}
+                placeholder="https://your-project.supabase.co (Leave empty for default cloud vault)"
+                className="hud-input"
+              />
+            </div>
+
+            <button
+              type="button"
+              className="hud-btn-primary sync-now-btn"
+              disabled={syncing}
+              onClick={handleManualSync}
+            >
+              {syncing ? 'SYNCHRONIZING SAVE WITH CLOUD...' : '✦ SYNC HUNTER PROGRESS WITH CLOUD ✦'}
+            </button>
+            {syncFeedback && <p className="sync-feedback-text">{syncFeedback}</p>}
+          </div>
+
           {/* Sound Configuration */}
           <div className="settings-section">
             <h4 className="section-title">AUDIO CALIBRATION</h4>
@@ -114,7 +210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="settings-section">
             <h4 className="section-title">ACCESSIBILITY & PERFORMANCE</h4>
             <div className="setting-row">
-              <label htmlFor="reducedMotionCheck">Reduced Motion Mode (Low GPU / i3 Laptop)</label>
+              <label htmlFor="reducedMotionCheck">Reduced Motion Mode (Low GPU / Intel i3 Laptop)</label>
               <input
                 id="reducedMotionCheck"
                 type="checkbox"
@@ -127,9 +223,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Data Portability (Backup & Restore) */}
           <div className="settings-section">
-            <h4 className="section-title">DATA MANAGEMENT (100% OFFLINE)</h4>
+            <h4 className="section-title">OFFLINE DATA BACKUP & RESTORE</h4>
             <p className="settings-desc">
-              Your Hunter progress is saved locally in this browser. Export a portable JSON backup file to transfer between devices or restore anytime.
+              Your hunter save is preserved locally. Export a portable JSON backup file to archive or restore anytime.
             </p>
 
             <div className="backup-actions-row">

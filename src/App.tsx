@@ -5,7 +5,10 @@ import {
   DungeonSession,
   AttributeKey,
   WorkoutLogEntry,
-  PlayerProfile
+  PlayerProfile,
+  EquipmentItem,
+  EquippedGear,
+  BleWearableState
 } from './types';
 import { loadGameState, saveGameState } from './storage';
 import { processXpGain, LevelUpResult } from './game/progression';
@@ -16,20 +19,27 @@ import { OnboardingModal } from './components/onboarding/OnboardingModal';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { QuestHub } from './components/quests/QuestHub';
 import { DungeonView } from './components/dungeons/DungeonView';
+import { InventoryView } from './components/inventory/InventoryView';
+import { PseudoMonarchView } from './components/monarch/PseudoMonarchView';
 import { CampaignView } from './components/campaigns/CampaignView';
 import { BossHub } from './components/bosses/BossHub';
 import { SkillTreeView } from './components/skillTree/SkillTreeView';
 import { FitnessTracker } from './components/fitness/FitnessTracker';
+import { VerificationModule } from './components/verification/VerificationModule';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { LevelUpModal } from './components/common/LevelUpModal';
+import { InteractiveTutorial } from './components/tutorial/InteractiveTutorial';
 
 export const App: React.FC = () => {
   const [gameState, setGameState] = useState<SystemReawakenState>(() => loadGameState());
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isCreateQuestOpen, setIsCreateQuestOpen] = useState<boolean>(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(false);
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpResult | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
+  const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   // Auto-save on every state change
   useEffect(() => {
@@ -41,6 +51,36 @@ export const App: React.FC = () => {
     soundEngine.enabled = gameState.settings.soundFxEnabled;
     soundEngine.masterVolume = gameState.settings.masterVolume;
   }, []);
+
+  // Register PWA Service Worker with non-intrusive update detection
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => {
+          setSwRegistration(reg);
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New update is ready and waiting!
+                  setUpdateAvailable(true);
+                }
+              });
+            }
+          });
+        })
+        .catch((err) => console.log('SW registration note:', err));
+    }
+  }, []);
+
+  // Trigger non-disruptive reload when player taps update banner
+  const handleApplyUpdate = () => {
+    if (swRegistration && swRegistration.waiting) {
+      swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    window.location.reload();
+  };
 
   // Update game settings
   const handleUpdateSettings = (newSettings: Partial<SystemReawakenState['settings']>) => {
@@ -60,6 +100,8 @@ export const App: React.FC = () => {
         isOnboarded: true
       }
     }));
+    // Suggest tutorial for new awakened hunters
+    setIsTutorialOpen(true);
   };
 
   // Stat Point Allocation Handler
@@ -90,11 +132,14 @@ export const App: React.FC = () => {
     if (isMarkingComplete) {
       soundEngine.playQuestComplete();
 
-      // Calculate XP and level-ups
+      // Apply Monarch passive multiplier if Ruler's Authority is active
+      const xpMultiplier = (gameState.monarch.unlocked && gameState.monarch.authorityActive) ? 1.15 : 1.0;
+      const earnedXp = Math.round(quest.xpReward * xpMultiplier);
+
       const { didLevelUp, result } = processXpGain(
         gameState.player.level,
         gameState.player.currentXp,
-        quest.xpReward
+        earnedXp
       );
 
       if (didLevelUp) {
@@ -121,13 +166,13 @@ export const App: React.FC = () => {
         if (todayRecordIdx >= 0) {
           existingHistory[todayRecordIdx] = {
             ...existingHistory[todayRecordIdx],
-            xpGained: existingHistory[todayRecordIdx].xpGained + quest.xpReward,
+            xpGained: existingHistory[todayRecordIdx].xpGained + earnedXp,
             questsCompleted: existingHistory[todayRecordIdx].questsCompleted + 1
           };
         } else {
           existingHistory.push({
             date: todayStr,
-            xpGained: quest.xpReward,
+            xpGained: earnedXp,
             questsCompleted: 1,
             focusMinutes: 0,
             categoriesActive: [quest.category]
@@ -138,6 +183,7 @@ export const App: React.FC = () => {
           ...prev,
           quests: updatedQuests,
           history: existingHistory,
+          syncStatus: prev.cloudAccount.cloudSyncEnabled ? 'sync_pending' : 'local_only',
           player: {
             ...prev.player,
             level: result.newLevel,
@@ -146,7 +192,7 @@ export const App: React.FC = () => {
             requiredXp: result.newRequiredXp,
             statPoints: prev.player.statPoints + result.statPointsAwarded,
             totalQuestsCompleted: prev.player.totalQuestsCompleted + 1,
-            fatigue: Math.max(0, prev.player.fatigue - 5), // completion relieves fatigue!
+            fatigue: Math.max(0, prev.player.fatigue - 5),
             stats: {
               ...prev.player.stats,
               [quest.attribute]: newAttrVal
@@ -219,10 +265,13 @@ export const App: React.FC = () => {
   };
 
   const handleCompleteDungeon = (session: DungeonSession) => {
+    const xpMultiplier = (gameState.monarch.unlocked && gameState.monarch.authorityActive) ? 1.15 : 1.0;
+    const finalRewardXp = Math.round(session.xpReward * xpMultiplier);
+
     const { didLevelUp, result } = processXpGain(
       gameState.player.level,
       gameState.player.currentXp,
-      session.xpReward
+      finalRewardXp
     );
 
     if (didLevelUp) {
@@ -240,13 +289,13 @@ export const App: React.FC = () => {
       if (todayRecordIdx >= 0) {
         existingHistory[todayRecordIdx] = {
           ...existingHistory[todayRecordIdx],
-          xpGained: existingHistory[todayRecordIdx].xpGained + session.xpReward,
+          xpGained: existingHistory[todayRecordIdx].xpGained + finalRewardXp,
           focusMinutes: existingHistory[todayRecordIdx].focusMinutes + sessionMins
         };
       } else {
         existingHistory.push({
           date: todayStr,
-          xpGained: session.xpReward,
+          xpGained: finalRewardXp,
           questsCompleted: 0,
           focusMinutes: sessionMins,
           categoriesActive: [session.category]
@@ -257,6 +306,7 @@ export const App: React.FC = () => {
         ...prev,
         activeDungeon: null,
         history: existingHistory,
+        syncStatus: prev.cloudAccount.cloudSyncEnabled ? 'sync_pending' : 'local_only',
         player: {
           ...prev.player,
           level: result.newLevel,
@@ -280,6 +330,114 @@ export const App: React.FC = () => {
     setGameState(prev => ({
       ...prev,
       activeDungeon: null
+    }));
+  };
+
+  // Equipment Handlers
+  const handleEquipItem = (item: EquipmentItem) => {
+    setGameState(prev => {
+      const updatedInventory = prev.inventory.map(i =>
+        i.id === item.id ? { ...i, isEquipped: true } : (i.slot === item.slot ? { ...i, isEquipped: false } : i)
+      );
+      const updatedGear: EquippedGear = {
+        ...prev.equippedGear,
+        [item.slot]: { ...item, isEquipped: true }
+      };
+
+      // Add attribute bonus
+      const updatedStats = { ...prev.player.stats };
+      Object.entries(item.statBonus).forEach(([attr, bonus]) => {
+        const k = attr as AttributeKey;
+        if (updatedStats[k] !== undefined && bonus) {
+          updatedStats[k] += bonus;
+        }
+      });
+
+      return {
+        ...prev,
+        inventory: updatedInventory,
+        equippedGear: updatedGear,
+        player: { ...prev.player, stats: updatedStats }
+      };
+    });
+  };
+
+  const handleUnequipItem = (slot: keyof EquippedGear) => {
+    setGameState(prev => {
+      const currentEquipped = prev.equippedGear[slot];
+      if (!currentEquipped) return prev;
+
+      const updatedInventory = prev.inventory.map(i =>
+        i.id === currentEquipped.id ? { ...i, isEquipped: false } : i
+      );
+      const updatedGear: EquippedGear = {
+        ...prev.equippedGear,
+        [slot]: null
+      };
+
+      // Subtract attribute bonus
+      const updatedStats = { ...prev.player.stats };
+      Object.entries(currentEquipped.statBonus).forEach(([attr, bonus]) => {
+        const k = attr as AttributeKey;
+        if (updatedStats[k] !== undefined && bonus) {
+          updatedStats[k] = Math.max(10, updatedStats[k] - bonus);
+        }
+      });
+
+      return {
+        ...prev,
+        inventory: updatedInventory,
+        equippedGear: updatedGear,
+        player: { ...prev.player, stats: updatedStats }
+      };
+    });
+  };
+
+  // Pseudo Monarch Handlers
+  const handleAwakenMonarch = () => {
+    setGameState(prev => ({
+      ...prev,
+      monarch: {
+        ...prev.monarch,
+        unlocked: true,
+        unlockedAt: new Date().toISOString()
+      },
+      player: {
+        ...prev.player,
+        title: 'Shadow Monarch Aspirant'
+      }
+    }));
+  };
+
+  const handleExtractShadow = (shadowId: string) => {
+    setGameState(prev => {
+      const updatedShadows = prev.monarch.shadows.map(s =>
+        s.id === shadowId ? { ...s, extracted: true, deployed: true } : s
+      );
+      return {
+        ...prev,
+        monarch: { ...prev.monarch, shadows: updatedShadows }
+      };
+    });
+  };
+
+  const handleToggleDeployShadow = (shadowId: string) => {
+    setGameState(prev => {
+      const updatedShadows = prev.monarch.shadows.map(s =>
+        s.id === shadowId ? { ...s, deployed: !s.deployed } : s
+      );
+      return {
+        ...prev,
+        monarch: { ...prev.monarch, shadows: updatedShadows }
+      };
+    });
+  };
+
+  // Wearable State Handler
+  const handleUpdateWearable = (patch: Partial<BleWearableState>) => {
+    setGameState(prev => ({
+      ...prev,
+      wearable: { ...prev.wearable, ...patch }
     }));
   };
 
@@ -309,7 +467,6 @@ export const App: React.FC = () => {
         };
       });
 
-      // Check if boss was newly defeated
       const targetedBoss = updatedBosses.find(b => b.id === bossId);
       if (targetedBoss && targetedBoss.defeated) {
         soundEngine.playBossDefeat();
@@ -341,10 +498,7 @@ export const App: React.FC = () => {
         };
       }
 
-      return {
-        ...prev,
-        bosses: updatedBosses
-      };
+      return { ...prev, bosses: updatedBosses };
     });
   };
 
@@ -432,6 +586,10 @@ export const App: React.FC = () => {
         settings={gameState.settings}
         updateSettings={handleUpdateSettings}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        syncStatus={gameState.syncStatus}
+        updateAvailable={updateAvailable}
+        onApplyUpdate={handleApplyUpdate}
+        onOpenTutorial={() => setIsTutorialOpen(true)}
       />
 
       {/* Main View Screen Container */}
@@ -476,6 +634,25 @@ export const App: React.FC = () => {
           />
         )}
 
+        {activeTab === 'inventory' && (
+          <InventoryView
+            inventory={gameState.inventory}
+            equippedGear={gameState.equippedGear}
+            onEquipItem={handleEquipItem}
+            onUnequipItem={handleUnequipItem}
+          />
+        )}
+
+        {activeTab === 'monarch' && (
+          <PseudoMonarchView
+            monarch={gameState.monarch}
+            player={gameState.player}
+            onExtractShadow={handleExtractShadow}
+            onToggleDeployShadow={handleToggleDeployShadow}
+            onAwakenMonarch={handleAwakenMonarch}
+          />
+        )}
+
         {activeTab === 'campaigns' && (
           <CampaignView
             campaigns={gameState.campaigns}
@@ -503,6 +680,13 @@ export const App: React.FC = () => {
           <FitnessTracker
             workoutLogs={gameState.workoutLogs}
             onAddWorkout={handleAddWorkout}
+          />
+        )}
+
+        {activeTab === 'verification' && (
+          <VerificationModule
+            wearable={gameState.wearable}
+            onUpdateWearable={handleUpdateWearable}
           />
         )}
 
@@ -539,18 +723,18 @@ export const App: React.FC = () => {
           <span className="mob-label">Dungeon</span>
         </button>
         <button
-          className={`mob-nav-btn ${activeTab === 'campaigns' ? 'active' : ''}`}
-          onClick={() => setActiveTab('campaigns')}
+          className={`mob-nav-btn ${activeTab === 'inventory' ? 'active' : ''}`}
+          onClick={() => setActiveTab('inventory')}
         >
-          <span className="mob-icon">🌌</span>
-          <span className="mob-label">Campaign</span>
+          <span className="mob-icon">💍</span>
+          <span className="mob-label">Loadout</span>
         </button>
         <button
-          className={`mob-nav-btn ${activeTab === 'bosses' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bosses')}
+          className={`mob-nav-btn ${activeTab === 'monarch' ? 'active' : ''}`}
+          onClick={() => setActiveTab('monarch')}
         >
-          <span className="mob-icon">🗡️</span>
-          <span className="mob-label">Bosses</span>
+          <span className="mob-icon">👑</span>
+          <span className="mob-label">Monarch</span>
         </button>
         <button
           className={`mob-nav-btn ${activeTab === 'analytics' ? 'active' : ''}`}
@@ -564,6 +748,17 @@ export const App: React.FC = () => {
       {/* First-Time Awakening Onboarding Modal */}
       {!gameState.player.isOnboarded && (
         <OnboardingModal onComplete={handleOnboardingComplete} />
+      )}
+
+      {/* Interactive System Tutorial */}
+      {isTutorialOpen && (
+        <InteractiveTutorial
+          onClose={() => setIsTutorialOpen(false)}
+          onCompleteTutorial={() => {
+            soundEngine.playLevelUp();
+            alert('✦ System Tutorial Completed! +50 Focus Mastery Bonus registered.');
+          }}
+        />
       )}
 
       {/* Settings Modal */}

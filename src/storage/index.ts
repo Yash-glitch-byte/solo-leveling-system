@@ -1,11 +1,183 @@
-// SYSTEM REAWAKEN - Storage Engine & Default State
+// SYSTEM REAWAKEN - Storage Engine & Data Migration Protocol (v2.5)
 
-import { SystemReawakenState, Quest, DungeonSession, BossChallenge, SkillNode, Achievement, Campaign } from '../types';
+import {
+  SystemReawakenState,
+  Quest,
+  DungeonSession,
+  BossChallenge,
+  SkillNode,
+  Achievement,
+  Campaign,
+  EquipmentItem,
+  EquippedGear,
+  PseudoMonarchState,
+  BleWearableState,
+  CloudAccount
+} from '../types';
 
 export const STORAGE_KEY = 'SYSTEM_REAWAKEN_PLAYER_DATA_V1';
+export const LEGACY_KEY_V1 = 'SOLO_LEVELING_PLAYER_DATA_V1';
+export const LEGACY_KEY_V2 = 'SOLO_LEVELING_PLAYER_DATA_V2';
 
 const getTodayString = (): string => new Date().toISOString().slice(0, 10);
 
+// ==========================================
+// DEFAULT GEAR & E-RING IMPLEMENTATION
+// ==========================================
+export const DEFAULT_E_RING: EquipmentItem = {
+  id: 'item-e-ring-origin',
+  name: 'The E-Ring (Awakened Ring of Origin)',
+  slot: 'ring',
+  rarity: 'rare',
+  description: 'A sacred cyan ring bestowed upon newly awakened hunters in their darkest hour.',
+  lore: 'Legend tells that when an E-Rank hunter refused to yield before the dual statues, this ring forged from obsidian and mana crystal materialized on their hand. It stabilizes neural vitals and shields the hunter from rapid exhaustion.',
+  statBonus: { vitality: 2, focus: 2 },
+  specialEffect: '-15% Fatigue accumulation on missed habits',
+  isEquipped: true,
+  icon: '💍',
+  unlockedAtLevel: 1
+};
+
+export const DEFAULT_INVENTORY_ITEMS: EquipmentItem[] = [
+  DEFAULT_E_RING,
+  {
+    id: 'item-kasaka-fang',
+    name: "Kasaka's Poison Fang",
+    slot: 'weapon',
+    rarity: 'epic',
+    description: 'A serrated venomous dagger forged from the blue scales of the Great Swamp Snake.',
+    lore: 'Inflicts numbing paralysis on friction tasks. Equipping this increases your resolve to confront high-difficulty algorithmic challenges.',
+    statBonus: { strength: 4, discipline: 2 },
+    specialEffect: '+10% XP on Coding & Algorithm quests',
+    isEquipped: true,
+    icon: '🗡️',
+    unlockedAtLevel: 1
+  },
+  {
+    id: 'item-obsidian-chestplate',
+    name: "Knight's Obsidian Chestplate",
+    slot: 'armor',
+    rarity: 'rare',
+    description: 'Forged from tempered dungeon iron, radiating a protective midnight blue aura.',
+    lore: 'Lightweight yet resilient against procrastination fatigue.',
+    statBonus: { vitality: 4, strength: 2 },
+    specialEffect: '+5% Max focus chamber stamina',
+    isEquipped: true,
+    icon: '🛡️',
+    unlockedAtLevel: 1
+  },
+  {
+    id: 'item-warden-choker',
+    name: "Warden's Focus Choker",
+    slot: 'accessory',
+    rarity: 'epic',
+    description: 'A silver collar with an embedded lapis focus core.',
+    lore: 'Calibrates brainwave frequencies into continuous alpha state.',
+    statBonus: { focus: 4, intelligence: 3 },
+    specialEffect: '+2 Minutes bonus stamina per 25m Focus Chamber',
+    isEquipped: true,
+    icon: '📿',
+    unlockedAtLevel: 2
+  },
+  {
+    id: 'item-ring-deep-focus',
+    name: 'Ring of Deep Sanctum',
+    slot: 'ring',
+    rarity: 'legendary',
+    description: 'An ancient relic that bends subjective time during deep focus sessions.',
+    lore: 'Forged by the ancient masters of deep work.',
+    statBonus: { focus: 5, discipline: 3 },
+    specialEffect: '+20% EXP from Instant Dungeons',
+    isEquipped: false,
+    icon: '💎',
+    unlockedAtLevel: 5
+  }
+];
+
+export const DEFAULT_EQUIPPED_GEAR: EquippedGear = {
+  weapon: DEFAULT_INVENTORY_ITEMS[1],
+  armor: DEFAULT_INVENTORY_ITEMS[2],
+  ring: DEFAULT_E_RING,
+  accessory: DEFAULT_INVENTORY_ITEMS[3]
+};
+
+// ==========================================
+// DEFAULT PSEUDO MONARCH SYSTEM
+// ==========================================
+export const DEFAULT_PSEUDO_MONARCH_STATE: PseudoMonarchState = {
+  unlocked: false,
+  prestigeRank: 'Monarch Candidate',
+  authorityActive: true,
+  domainActive: true,
+  shadows: [
+    {
+      id: 'shadow-igris',
+      name: 'Igris, The Blood-Red Commander',
+      title: 'Knight Sovereign of Loyalty',
+      lore: 'A towering knight draped in crimson plume armor. His dual greatswords guard your daily discipline routine.',
+      extracted: false,
+      deployed: true,
+      statBonus: { strength: 5, discipline: 4 },
+      quote: '"My blade shall shield the Sovereign\'s path until the end of time."',
+      icon: '⚔️',
+      requiredLevel: 5
+    },
+    {
+      id: 'shadow-tank',
+      name: 'Tank, The Ice Bear Alpha',
+      title: 'Beast Vanguard of Endurance',
+      lore: 'A massive frost-infused ursine guardian whose unyielding resilience absorbs physical workout fatigue.',
+      extracted: false,
+      deployed: false,
+      statBonus: { vitality: 5, strength: 3 },
+      quote: '*A low, earth-shaking rumble of absolute obedience.*',
+      icon: '🐻',
+      requiredLevel: 8
+    },
+    {
+      id: 'shadow-iron',
+      name: 'Iron, The Obsidian Shield',
+      title: 'Unbreakable Bastion',
+      lore: 'A colossal heavy-armored vanguard who roars in the face of daunting career milestones.',
+      extracted: false,
+      deployed: false,
+      statBonus: { vitality: 6, career: 4 },
+      quote: '"RRAAAAGHHH! (The shield of the Monarch stands firm!)"',
+      icon: '🛡️',
+      requiredLevel: 12
+    },
+    {
+      id: 'shadow-beru',
+      name: 'Beru, King of the Swarm',
+      title: 'Sovereign Shadow Marshal',
+      lore: 'The apex biological predator awakened into dark shadow essence. Unrivaled speed, intellect, and razor-sharp execution.',
+      extracted: false,
+      deployed: false,
+      statBonus: { strength: 10, intelligence: 8, focus: 8 },
+      quote: '"My King! Grant me permission to eradicate all friction from your path!"',
+      icon: '👑',
+      requiredLevel: 25
+    }
+  ]
+};
+
+// ==========================================
+// DEFAULT WEARABLE & CLOUD ACCOUNTS
+// ==========================================
+export const DEFAULT_WEARABLE_STATE: BleWearableState = {
+  supported: typeof navigator !== 'undefined' && 'bluetooth' in navigator,
+  connected: false
+};
+
+export const DEFAULT_CLOUD_ACCOUNT: CloudAccount = {
+  hunterId: `hunter-${Math.random().toString(36).slice(2, 9)}`,
+  username: 'Hunter',
+  cloudSyncEnabled: false
+};
+
+// ==========================================
+// DUNGEONS, CAMPAIGNS, BOSSES, SKILLS, ACHIEVEMENTS
+// ==========================================
 export const DEFAULT_DUNGEON_TEMPLATES: DungeonSession[] = [
   {
     id: 'dungeon-training-1',
@@ -210,7 +382,6 @@ export const DEFAULT_BOSSES: BossChallenge[] = [
 ];
 
 export const DEFAULT_SKILL_TREES: SkillNode[] = [
-  // Coding Tree
   {
     id: 'skill-code-fund',
     treeId: 'coding',
@@ -247,7 +418,6 @@ export const DEFAULT_SKILL_TREES: SkillNode[] = [
     attributeAffinities: ['career', 'intelligence'],
     milestones: ['API Contract Design', 'Distributed Cache Layer', 'Database indexing', 'High Availability Arch']
   },
-  // Career Tree
   {
     id: 'skill-career-resume',
     treeId: 'career',
@@ -272,7 +442,6 @@ export const DEFAULT_SKILL_TREES: SkillNode[] = [
     attributeAffinities: ['communication', 'discipline'],
     milestones: ['5 Recorded Mocks', 'System Design verbal walk', 'Reverse question mastery']
   },
-  // Fitness Tree
   {
     id: 'skill-physique-found',
     treeId: 'fitness',
@@ -312,6 +481,28 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     unlockedTitle: 'The Awakened Aspirant'
   },
   {
+    id: 'ach-ering-bearer',
+    title: 'Bearer of the Ring',
+    description: 'Equip The E-Ring and complete 3 habit quests without fatigue penalty.',
+    category: 'quests',
+    icon: '💍',
+    unlocked: true,
+    progressCurrent: 3,
+    progressMax: 3,
+    unlockedTitle: 'Ring-Bearer of Origin'
+  },
+  {
+    id: 'ach-pseudo-monarch',
+    title: 'Shadow Authority',
+    description: 'Awaken the Pseudo Monarch system and extract your first Shadow Commander.',
+    category: 'bosses',
+    icon: '👑',
+    unlocked: false,
+    progressCurrent: 0,
+    progressMax: 1,
+    unlockedTitle: 'Monarch Aspirant'
+  },
+  {
     id: 'ach-dungeon-initiate',
     title: 'Dungeon Diver',
     description: 'Successfully survive and clear your first Focus Dungeon chamber.',
@@ -321,17 +512,6 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     progressCurrent: 0,
     progressMax: 1,
     unlockedTitle: 'Chamber Survivor'
-  },
-  {
-    id: 'ach-dungeon-master',
-    title: 'Domain Conqueror',
-    description: 'Accumulate over 120 minutes of deep focus dungeon sessions.',
-    category: 'dungeons',
-    icon: '🏰',
-    unlocked: false,
-    progressCurrent: 0,
-    progressMax: 120,
-    unlockedTitle: 'Master of Deep Work'
   },
   {
     id: 'ach-streak-7',
@@ -345,17 +525,6 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     unlockedTitle: 'The Steadfast'
   },
   {
-    id: 'ach-level-10',
-    title: 'Ascendant Rank',
-    description: 'Level up your Hunter character to Level 10.',
-    category: 'levels',
-    icon: '👑',
-    unlocked: false,
-    progressCurrent: 1,
-    progressMax: 10,
-    unlockedTitle: 'Ascendant Hunter'
-  },
-  {
     id: 'ach-boss-slayer',
     title: 'Monarch Vanquisher',
     description: 'Defeat your first Milestone Boss challenge.',
@@ -365,17 +534,6 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     progressCurrent: 0,
     progressMax: 1,
     unlockedTitle: 'Slayer of Monarchs'
-  },
-  {
-    id: 'ach-campaign-21',
-    title: 'New Dawn Protocol',
-    description: 'Successfully conquer the 21-Day Awakening Campaign.',
-    category: 'campaigns',
-    icon: '🌅',
-    unlocked: false,
-    progressCurrent: 0,
-    progressMax: 21,
-    unlockedTitle: 'Reawakened Sovereign'
   }
 ];
 
@@ -397,7 +555,8 @@ export const DEFAULT_STARTER_QUESTS: Quest[] = [
     xpReward: 30,
     attributePoints: 2,
     status: 'available',
-    isDaily: true
+    isDaily: true,
+    verification: { tier: 'self_reported' }
   },
   {
     id: 'q-starter-2',
@@ -414,7 +573,8 @@ export const DEFAULT_STARTER_QUESTS: Quest[] = [
     xpReward: 35,
     attributePoints: 2,
     status: 'available',
-    isDaily: true
+    isDaily: true,
+    verification: { tier: 'evidence_attached' }
   },
   {
     id: 'q-starter-3',
@@ -432,7 +592,8 @@ export const DEFAULT_STARTER_QUESTS: Quest[] = [
     xpReward: 20,
     attributePoints: 1,
     status: 'available',
-    isDaily: true
+    isDaily: true,
+    verification: { tier: 'self_reported' }
   },
   {
     id: 'q-starter-4',
@@ -449,30 +610,13 @@ export const DEFAULT_STARTER_QUESTS: Quest[] = [
     xpReward: 30,
     attributePoints: 2,
     status: 'available',
-    isDaily: true
-  },
-  {
-    id: 'q-starter-5',
-    title: 'Career Advancement: Audit & Refine Portfolio Project',
-    description: 'Review project README, add architecture diagram, or refine bullet points on resume.',
-    category: 'career',
-    difficulty: 'hard',
-    durationMinutes: 40,
-    subtasks: [
-      { id: 'st-5a', title: 'Add clear problem & solution section to README', completed: false },
-      { id: 'st-5b', title: 'Verify live deployment URL works smoothly', completed: false }
-    ],
-    attribute: 'career',
-    xpReward: 45,
-    attributePoints: 3,
-    status: 'available',
-    isDaily: false,
-    isWeekly: true
+    isDaily: true,
+    verification: { tier: 'verified_milestone' }
   }
 ];
 
 export const DEFAULT_STATE: SystemReawakenState = {
-  version: 1,
+  version: 2,
   player: {
     name: 'Player',
     alias: 'Shadow Monarch',
@@ -509,9 +653,15 @@ export const DEFAULT_STATE: SystemReawakenState = {
     totalFocusMinutes: 0,
     fatigue: 0,
     lastActiveDate: getTodayString(),
-    isOnboarded: false // will prompt onboarding if false
+    isOnboarded: false
   },
   quests: DEFAULT_STARTER_QUESTS,
+  inventory: DEFAULT_INVENTORY_ITEMS,
+  equippedGear: DEFAULT_EQUIPPED_GEAR,
+  monarch: DEFAULT_PSEUDO_MONARCH_STATE,
+  wearable: DEFAULT_WEARABLE_STATE,
+  cloudAccount: DEFAULT_CLOUD_ACCOUNT,
+  syncStatus: 'local_only',
   activeDungeon: null,
   dungeonTemplates: DEFAULT_DUNGEON_TEMPLATES,
   campaigns: DEFAULT_CAMPAIGNS,
@@ -543,23 +693,72 @@ export const DEFAULT_STATE: SystemReawakenState = {
     {
       id: 'sys-init',
       timestamp: Date.now(),
-      text: '[SYSTEM] System Reawaken initialized. Welcome, Player.',
+      text: '[SYSTEM] System Reawaken v2.5 initialized. E-Ring synchronized.',
       type: 'system'
     }
   ]
 };
 
 // ==========================================
+// BACKWARD DATA MIGRATION ENGINE
+// ==========================================
+function migrateLegacyData(): Partial<SystemReawakenState> | null {
+  try {
+    // Check legacy v2 first, then legacy v1
+    const rawV2 = localStorage.getItem(LEGACY_KEY_V2);
+    const rawV1 = localStorage.getItem(LEGACY_KEY_V1);
+    const candidate = rawV2 || rawV1;
+    if (!candidate) return null;
+
+    const legacy = JSON.parse(candidate);
+    if (!legacy || !legacy.player) return null;
+
+    console.log('[MIGRATION] Found legacy player data. Preserving hunter progress...');
+
+    return {
+      player: {
+        ...DEFAULT_STATE.player,
+        name: legacy.player.name || DEFAULT_STATE.player.name,
+        alias: legacy.player.title || DEFAULT_STATE.player.alias,
+        level: Math.max(1, legacy.player.level || 1),
+        currentXp: legacy.player.currentXp || 0,
+        requiredXp: legacy.player.requiredXp || 100,
+        statPoints: legacy.player.statPoints || 0,
+        stats: {
+          strength: legacy.player.stats?.str || 10,
+          vitality: legacy.player.stats?.vit || 10,
+          intelligence: legacy.player.stats?.int || 10,
+          focus: legacy.player.stats?.per || 10,
+          discipline: 10,
+          career: 10,
+          communication: 10
+        },
+        isOnboarded: true
+      }
+    };
+  } catch (err) {
+    console.warn('[MIGRATION] Legacy migration note:', err);
+    return null;
+  }
+}
+
+// ==========================================
 // Persistence Engine
 // ==========================================
-
 export function loadGameState(): SystemReawakenState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_STATE;
-    const parsed = JSON.parse(raw);
-    
-    // Ensure all required sub-objects exist even if schema evolved
+    let parsed: any = null;
+
+    if (raw) {
+      parsed = JSON.parse(raw);
+    } else {
+      // Attempt migration from legacy keys
+      parsed = migrateLegacyData();
+    }
+
+    if (!parsed) return DEFAULT_STATE;
+
     return {
       ...DEFAULT_STATE,
       ...parsed,
@@ -570,6 +769,28 @@ export function loadGameState(): SystemReawakenState {
           ...DEFAULT_STATE.player.stats,
           ...(parsed.player?.stats || {})
         }
+      },
+      inventory: Array.isArray(parsed.inventory) && parsed.inventory.length > 0
+        ? parsed.inventory
+        : DEFAULT_INVENTORY_ITEMS,
+      equippedGear: {
+        ...DEFAULT_EQUIPPED_GEAR,
+        ...(parsed.equippedGear || {})
+      },
+      monarch: {
+        ...DEFAULT_PSEUDO_MONARCH_STATE,
+        ...(parsed.monarch || {}),
+        shadows: Array.isArray(parsed.monarch?.shadows) && parsed.monarch.shadows.length > 0
+          ? parsed.monarch.shadows
+          : DEFAULT_PSEUDO_MONARCH_STATE.shadows
+      },
+      wearable: {
+        ...DEFAULT_WEARABLE_STATE,
+        ...(parsed.wearable || {})
+      },
+      cloudAccount: {
+        ...DEFAULT_CLOUD_ACCOUNT,
+        ...(parsed.cloudAccount || {})
       },
       settings: {
         ...DEFAULT_STATE.settings,
@@ -632,4 +853,6 @@ export function importBackupJSON(jsonStr: string): SystemReawakenState {
 
 export function resetGameStorage(): void {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEGACY_KEY_V1);
+  localStorage.removeItem(LEGACY_KEY_V2);
 }

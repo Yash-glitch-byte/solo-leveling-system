@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# C++ Build artifacts
+*.exe
+*.o
+*.obj
+*.out
+build/
+reawaken_core

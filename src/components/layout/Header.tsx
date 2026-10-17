@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlayerProfile, GameSettings } from '../../types';
+import { PlayerProfile, GameSettings, CloudSyncStatus } from '../../types';
 import { soundEngine } from '../../game/sound';
 
 interface HeaderProps {
@@ -9,6 +9,10 @@ interface HeaderProps {
   settings: GameSettings;
   updateSettings: (newSettings: Partial<GameSettings>) => void;
   onOpenSettings: () => void;
+  syncStatus: CloudSyncStatus;
+  updateAvailable?: boolean;
+  onApplyUpdate?: () => void;
+  onOpenTutorial: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,7 +21,11 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   settings,
   updateSettings,
-  onOpenSettings
+  onOpenSettings,
+  syncStatus,
+  updateAvailable,
+  onApplyUpdate,
+  onOpenTutorial
 }) => {
   const [ambientActive, setAmbientActive] = useState<boolean>(false);
 
@@ -44,15 +52,25 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'dashboard', label: 'STATUS', icon: '⚡' },
     { id: 'quests', label: 'QUESTS', icon: '📜' },
     { id: 'dungeons', label: 'DUNGEON', icon: '🗝️' },
+    { id: 'inventory', label: 'LOADOUT (E-RING)', icon: '💍' },
+    { id: 'monarch', label: 'PSEUDO MONARCH', icon: '👑' },
     { id: 'campaigns', label: 'CAMPAIGN', icon: '🌌' },
     { id: 'bosses', label: 'BOSS RAIDS', icon: '🗡️' },
     { id: 'skill-tree', label: 'SKILLS', icon: '🌳' },
     { id: 'fitness', label: 'FITNESS', icon: '🏋️' },
+    { id: 'verification', label: 'VERIFICATION', icon: '🛡️' },
     { id: 'analytics', label: 'ANALYTICS', icon: '📊' }
   ];
 
   return (
     <header className="system-header">
+      {/* Update Available Notification Banner */}
+      {updateAvailable && (
+        <div className="update-notification-banner" onClick={onApplyUpdate} role="button" tabIndex={0}>
+          <span>✦ NEW SYSTEM REAWAKEN UPDATE AVAILABLE — TAP TO RELOAD ✦</span>
+        </div>
+      )}
+
       {/* Top Banner Row */}
       <div className="header-top-row">
         {/* Brand / Logo */}
@@ -60,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="brand-gem"></div>
           <div className="brand-text-block">
             <h1 className="brand-title">SYSTEM REAWAKEN</h1>
-            <span className="brand-subtitle">[HUNTER PROTOCOL v2.4]</span>
+            <span className="brand-subtitle">[HUNTER PROTOCOL v2.5]</span>
           </div>
         </div>
 
@@ -89,6 +107,17 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="streak-num">{player.currentStreak}d</span>
           </div>
 
+          {/* Sync Status Badge */}
+          <div className={`sync-status-badge sync-${syncStatus}`} title={`Cloud state: ${syncStatus}`}>
+            <span className="sync-dot" />
+            <span className="sync-label">
+              {syncStatus === 'synced' && 'CLOUD SYNCED'}
+              {syncStatus === 'local_only' && 'SAVED LOCALLY'}
+              {syncStatus === 'sync_pending' && 'SYNC PENDING'}
+              {syncStatus === 'offline' && 'OFFLINE'}
+            </span>
+          </div>
+
           {player.statPoints > 0 && (
             <button
               className="stat-points-alert-btn"
@@ -100,8 +129,17 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Audio & System Controls */}
+        {/* Audio, Tutorial & System Controls */}
         <div className="header-controls">
+          <button
+            className="hud-icon-btn guide-btn"
+            onClick={onOpenTutorial}
+            title="Open Interactive Tutorial & System Guide"
+            aria-label="Open Tutorial"
+          >
+            📖 GUIDE
+          </button>
+
           <button
             className={`hud-icon-btn ${settings.soundFxEnabled ? 'active' : 'muted'}`}
             onClick={toggleSoundFx}
