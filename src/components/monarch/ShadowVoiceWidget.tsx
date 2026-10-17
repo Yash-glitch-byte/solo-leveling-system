@@ -57,7 +57,7 @@ export const ShadowVoiceWidget: React.FC<ShadowVoiceWidgetProps> = ({
             position: 'absolute',
             bottom: '68px',
             right: '0',
-            width: '320px',
+            width: '285px',
             maxWidth: 'calc(100vw - 32px)',
             background: 'rgba(9, 18, 36, 0.95)',
             border: '1px solid #ff3366',
