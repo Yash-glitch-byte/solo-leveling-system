@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { PseudoMonarchState, ShadowCommander, PlayerProfile } from '../../types';
 import { soundEngine } from '../../game/sound';
-import { shadowVoice } from '../../game/voiceAssistant';
 
 interface PseudoMonarchViewProps {
   monarch: PseudoMonarchState;
@@ -29,7 +28,6 @@ export const PseudoMonarchView: React.FC<PseudoMonarchViewProps> = ({
     setTimeout(() => {
       onExtractShadow(shadow.id);
       setAriseAnimating(false);
-      shadowVoice.speak(`Shadow extracted! ${shadow.name} enters your legion.`);
     }, 900);
   };
 
@@ -155,7 +153,6 @@ export const PseudoMonarchView: React.FC<PseudoMonarchViewProps> = ({
             onClick={() => {
               soundEngine.playLevelUp();
               onAwakenMonarch();
-              shadowVoice.announceLevelUp(player.level);
             }}
             style={{
               padding: '14px 28px',

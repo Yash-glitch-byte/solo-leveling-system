@@ -9,6 +9,7 @@ interface SettingsModalProps {
   updateSettings: (newSettings: Partial<GameSettings>) => void;
   fullState: SystemReawakenState;
   onRestoreState: (restored: SystemReawakenState) => void;
+  onRecalibrateProgress?: () => void;
   onClose: () => void;
   updateAvailable?: boolean;
   onApplyUpdate?: () => void;
@@ -19,6 +20,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   updateSettings,
   fullState,
   onRestoreState,
+  onRecalibrateProgress,
   onClose,
   updateAvailable,
   onApplyUpdate
@@ -324,6 +326,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </p>
             )}
           </div>
+
+          {/* Anti-Cheat & Progress Recalibration */}
+          {onRecalibrateProgress && (
+            <div className="settings-section" style={{ border: '1px solid rgba(255, 170, 0, 0.35)', background: 'rgba(255, 170, 0, 0.04)', borderRadius: '8px', padding: '14px' }}>
+              <h4 className="section-title" style={{ color: '#ffaa00', margin: '0 0 6px 0' }}>PROGRESS RECALIBRATION</h4>
+              <p style={{ fontSize: '0.82rem', color: '#7f9ebc', margin: '0 0 12px 0', lineHeight: '1.45' }}>
+                Fix accidental level or stat point inflation caused by arena glitches. Recalculates genuine Level, Rank, and Stat Points strictly based on completed quests.
+              </p>
+              <button
+                className="hud-btn-secondary"
+                style={{ borderColor: '#ffaa00', color: '#ffaa00', width: '100%', padding: '10px' }}
+                onClick={() => {
+                  onRecalibrateProgress();
+                  onClose();
+                }}
+              >
+                ⚖️ RECALIBRATE TO LEGITIMATE LEVEL & STATS
+              </button>
+            </div>
+          )}
 
           {/* Destructive Action */}
           <div className="settings-section danger-zone">

@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Quest } from '../../types';
 import { soundEngine } from '../../game/sound';
-import { shadowVoice } from '../../game/voiceAssistant';
 
 interface QuestCombatVerificationModalProps {
   quest: Quest;
@@ -28,6 +27,10 @@ export const QuestCombatVerificationModal: React.FC<QuestCombatVerificationModal
   // Workout state (starts empty - must complete all 4 sets)
   const [completedSets, setCompletedSets] = useState<number[]>([]);
   const [activeRestTimer, setActiveRestTimer] = useState<number | null>(null);
+
+  // Human self-report log state
+  const [humanReportText, setHumanReportText] = useState('');
+  const [showSelfReportBox, setShowSelfReportBox] = useState(false);
 
   // DSA state
   const [problemName, setProblemName] = useState('');
@@ -114,14 +117,22 @@ export const QuestCombatVerificationModal: React.FC<QuestCombatVerificationModal
       ? `Problem: ${problemName.trim()} | Complexity: ${complexity.trim()} | Note: ${solutionNote.trim()}`
       : `Study Milestone: ${solutionNote.trim()}`;
     
-    shadowVoice.announceTaskComplete(quest.title);
     onVerifyAndComplete(quest.id, true, proof);
     onClose();
   };
 
   const handleClaimUnverified = () => {
-    soundEngine.playPing();
-    onVerifyAndComplete(quest.id, false, 'Unverified Self-Report (30% EXP Baseline)');
+    if (!showSelfReportBox) {
+      setShowSelfReportBox(true);
+      return;
+    }
+    if (humanReportText.trim().length < 15) {
+      setValidationError('Human Verification Required: You must log at least 15 characters describing what you actually completed in the real world.');
+      soundEngine.playPing();
+      return;
+    }
+    soundEngine.playLevelUp();
+    onVerifyAndComplete(quest.id, false, `[Human Self-Report] ${humanReportText.trim()}`);
     onClose();
   };
 
@@ -422,18 +433,46 @@ export const QuestCombatVerificationModal: React.FC<QuestCombatVerificationModal
               : `🔒 PROOF REQUIRED (ATTACH PHOTO OR LOG METRICS)`}
           </button>
 
+          {showSelfReportBox && (
+            <div style={{ background: 'rgba(255, 170, 0, 0.06)', border: '1px solid rgba(255, 170, 0, 0.3)', borderRadius: '8px', padding: '12px' }}>
+              <strong style={{ color: '#ffaa00', fontSize: '0.86rem', display: 'block', marginBottom: '6px' }}>
+                ✍️ HUMAN EXECUTION LOG (REQUIRED)
+              </strong>
+              <p style={{ color: '#e2f1ff', fontSize: '0.78rem', marginBottom: '8px' }}>
+                Describe what you accomplished in the real world (minimum 15 characters required to verify human completion):
+              </p>
+              <textarea
+                placeholder="e.g. Completed 35 push-ups and 2-min plank on living room floor..."
+                value={humanReportText}
+                onChange={e => {
+                  setHumanReportText(e.target.value);
+                  setValidationError(null);
+                }}
+                rows={2}
+                style={{ width: '100%', fontSize: '0.84rem', padding: '8px', background: 'rgba(6, 12, 26, 0.95)', border: '1px solid rgba(255, 170, 0, 0.4)', color: '#fff', borderRadius: '6px' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.72rem', color: humanReportText.trim().length >= 15 ? '#10b981' : '#f59e0b' }}>
+                <span>{humanReportText.trim().length >= 15 ? '✓ Verified Human Log' : 'Minimum 15 characters required'}</span>
+                <span>{humanReportText.trim().length}/15</span>
+              </div>
+            </div>
+          )}
+
           <button
             className="hud-btn-secondary"
             onClick={handleClaimUnverified}
             style={{
               padding: '10px',
               fontSize: '0.82rem',
-              color: '#ffaa00',
+              color: showSelfReportBox && humanReportText.trim().length < 15 ? '#94a3b8' : '#ffaa00',
               borderColor: 'rgba(255, 170, 0, 0.3)',
-              background: 'rgba(255, 170, 0, 0.05)'
+              background: 'rgba(255, 170, 0, 0.05)',
+              cursor: showSelfReportBox && humanReportText.trim().length < 15 ? 'not-allowed' : 'pointer'
             }}
           >
-            ⚠️ Quick Self-Claim (Unverified: Awards 30% EXP Baseline Only)
+            {showSelfReportBox
+              ? (humanReportText.trim().length >= 15 ? '🛡️ CONFIRM HUMAN LOG & CLAIM (30% EXP)' : '🔒 ENTER AT LEAST 15 CHARACTERS TO CLAIM')
+              : '📝 Log Human Self-Report (Awards 30% EXP Baseline)'}
           </button>
         </div>
       </div>

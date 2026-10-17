@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { soundEngine } from '../../game/sound';
-import { shadowVoice } from '../../game/voiceAssistant';
 import { EquipmentItem } from '../../types';
 
 export interface LootReward {
@@ -91,7 +90,6 @@ export const LootDropModal: React.FC<LootDropModalProps> = ({
       };
 
       setOpenedReward(reward);
-      shadowVoice.speak(`Mystery Crate unlocked! Bonus ${xpRoll} EXP awarded to your profile.`);
     }, 1200);
   };
 

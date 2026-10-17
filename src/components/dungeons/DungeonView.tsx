@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DungeonSession, AttributeKey, PlayerProfile } from '../../types';
 import { soundEngine } from '../../game/sound';
-import { shadowVoice } from '../../game/voiceAssistant';
 
 interface DungeonViewProps {
   dungeonTemplates: DungeonSession[];
@@ -216,7 +215,6 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
                   onClick={() => {
                     if (!isTimeSatisfied) {
                       soundEngine.playPing();
-                      shadowVoice.announceCheatRejection();
                       setIsCheatWarningOpen(true);
                       return;
                     }

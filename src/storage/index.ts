@@ -648,19 +648,9 @@ export const DEFAULT_COMPETITIONS: any[] = [
     scoringCriteria: 'Verified: 100 pts | Supported: 70 pts | Self-Report: 30 pts',
     rewardXp: 250,
     rewardTitle: 'Code Sovereign',
-    joined: true,
-    participants: [
-      {
-        hunterId: 'HNT-ME',
-        name: 'You (The Monarch)',
-        avatarIcon: '⚡',
-        rank: 'E-Rank',
-        score: 100,
-        verifiedActions: 1,
-        selfReportedActions: 0,
-        isCurrentUser: true
-      }
-    ]
+    joined: false,
+    claimed: false,
+    participants: []
   },
   {
     id: 'comp-focus-decathlon',

@@ -37,8 +37,8 @@ export const VOICE_PERSONAS: Record<VoicePersona, VoicePersonaInfo> = {
     title: 'The Bloodred Knight',
     avatar: '🛡️',
     description: 'Resonant, loyal, and fluent commander voice.',
-    pitch: 0.96,
-    rate: 0.98
+    pitch: 1.0,
+    rate: 1.0
   }
 };
 
@@ -197,7 +197,7 @@ export class ShadowVoiceEngine {
     const v = voices.find(voice => voice.name === voiceName);
     const utterance = new SpeechSynthesisUtterance("Greetings, Hunter. I am your guide, speaking with fluent human inflection. Ready for today's directives.");
     if (v) utterance.voice = v;
-    utterance.pitch = 0.98;
+    utterance.pitch = 1.0;
     utterance.rate = 1.0;
     if (onEnd) utterance.onend = onEnd;
     this.synth.speak(utterance);

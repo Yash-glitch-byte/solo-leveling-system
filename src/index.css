@@ -2314,8 +2314,11 @@ body {
 }
 
 @media (max-width: 768px) {
+  .nav-bar-wrapper {
+    display: none !important;
+  }
   .desktop-nav-bar {
-    display: none;
+    display: none !important;
   }
   .mobile-nav-bar {
     display: flex;

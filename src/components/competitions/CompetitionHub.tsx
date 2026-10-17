@@ -183,24 +183,72 @@ export const CompetitionHub: React.FC<CompetitionHubProps> = ({
                 </h3>
               </div>
 
-              {!selectedComp.joined ? (
-                <button
-                  onClick={() => { soundEngine.playLevelUp(); onJoinCompetition(selectedComp.id); }}
-                  className="hud-btn-primary"
-                  style={{ padding: '8px 14px', fontSize: '0.78rem' }}
-                >
-                  ENTER ARENA
-                </button>
-              ) : (
-                <button
-                  onClick={() => { soundEngine.playLevelUp(); onClaimVictoryReward(selectedComp.id); }}
-                  className="hud-btn-primary"
-                  style={{ padding: '8px 14px', fontSize: '0.78rem', background: '#10b981', borderColor: '#10b981', color: '#051810' }}
-                  disabled={selectedComp.claimed}
-                >
-                  {selectedComp.claimed ? 'REWARD CLAIMED' : 'CLAIM REWARDS'}
-                </button>
-              )}
+              {(() => {
+                const userPart = selectedComp.participants.find(p => p.isCurrentUser);
+                const userScore = userPart ? userPart.score : 0;
+                const isEnded = new Date().toISOString().slice(0, 10) >= selectedComp.endDate;
+
+                if (!selectedComp.joined) {
+                  return (
+                    <button
+                      onClick={() => { soundEngine.playLevelUp(); onJoinCompetition(selectedComp.id); }}
+                      className="hud-btn-primary"
+                      style={{ padding: '8px 14px', fontSize: '0.78rem' }}
+                    >
+                      ENTER ARENA
+                    </button>
+                  );
+                }
+
+                if (selectedComp.claimed) {
+                  return (
+                    <button
+                      className="hud-btn-secondary"
+                      style={{
+                        padding: '8px 14px',
+                        fontSize: '0.78rem',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        color: '#64748b',
+                        cursor: 'not-allowed'
+                      }}
+                      disabled
+                    >
+                      ✓ REWARDS CLAIMED
+                    </button>
+                  );
+                }
+
+                if (userScore <= 0 && !isEnded) {
+                  return (
+                    <button
+                      className="hud-btn-secondary"
+                      style={{
+                        padding: '8px 14px',
+                        fontSize: '0.78rem',
+                        background: 'rgba(0, 210, 255, 0.05)',
+                        borderColor: 'rgba(0, 210, 255, 0.25)',
+                        color: '#7f9ebc',
+                        cursor: 'not-allowed'
+                      }}
+                      title="Log verified tasks to score points before claiming arena victory rewards"
+                      disabled
+                    >
+                      ⏳ ARENA IN PROGRESS
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    onClick={() => { soundEngine.playLevelUp(); onClaimVictoryReward(selectedComp.id); }}
+                    className="hud-btn-primary"
+                    style={{ padding: '8px 14px', fontSize: '0.78rem', background: '#10b981', borderColor: '#10b981', color: '#051810' }}
+                  >
+                    CLAIM REWARDS
+                  </button>
+                );
+              })()}
             </div>
 
             <p style={{ fontSize: '0.82rem', color: '#e0f2fe', margin: '0 0 14px 0', lineHeight: '1.45' }}>

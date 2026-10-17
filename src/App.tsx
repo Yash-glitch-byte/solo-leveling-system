@@ -35,7 +35,6 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { LevelUpModal } from './components/common/LevelUpModal';
 import { InteractiveTutorial } from './components/tutorial/InteractiveTutorial';
 import { InstallModal } from './components/install/InstallModal';
-import { ShadowVoiceWidget } from './components/monarch/ShadowVoiceWidget';
 import { QuestCombatVerificationModal } from './components/verification/QuestCombatVerificationModal';
 import { EditProfileModal } from './components/profile/EditProfileModal';
 import { LootDropModal, LootReward } from './components/loot/LootDropModal';
@@ -43,7 +42,6 @@ import { MultiplayerHub } from './components/multiplayer/MultiplayerHub';
 import { CompetitionHub } from './components/competitions/CompetitionHub';
 import { VoiceCompanionView } from './components/voice/VoiceCompanionView';
 import { BatchEvidenceModal } from './components/verification/BatchEvidenceModal';
-import { shadowVoice } from './game/voiceAssistant';
 
 export const App: React.FC = () => {
   const [gameState, setGameState] = useState<SystemReawakenState>(() => loadGameState());
@@ -785,6 +783,23 @@ export const App: React.FC = () => {
   const handleClaimVictoryReward = (compId: string) => {
     const comp = (gameState.competitions || []).find(c => c.id === compId);
     if (!comp) return;
+
+    // ANTI-CHEAT: Reject duplicate claims
+    if (comp.claimed) {
+      alert('Rewards for this competition have already been claimed.');
+      return;
+    }
+
+    // ANTI-CHEAT: Verify user has participated and scored points, or competition has ended
+    const userPart = comp.participants.find(p => p.isCurrentUser);
+    const userScore = userPart ? userPart.score : 0;
+    const isEnded = new Date().toISOString().slice(0, 10) >= comp.endDate;
+
+    if (userScore <= 0 && !isEnded) {
+      alert('Participation Required: You must score at least one verified or supported action in this competition before claiming victory rewards!');
+      return;
+    }
+
     soundEngine.playLevelUp();
     const { didLevelUp, result } = processXpGain(
       gameState.player.level,
@@ -796,7 +811,7 @@ export const App: React.FC = () => {
     setGameState(prev => ({
       ...prev,
       competitions: (prev.competitions || []).map(c =>
-        c.id === compId ? { ...c, status: 'completed' as const } : c
+        c.id === compId ? { ...c, status: 'completed' as const, claimed: true } : c
       ),
       player: {
         ...prev.player,
@@ -804,10 +819,41 @@ export const App: React.FC = () => {
         rank: result.newRank,
         currentXp: result.remainingXp,
         requiredXp: result.newRequiredXp,
-        statPoints: prev.player.statPoints + result.statPointsAwarded + 2,
+        statPoints: prev.player.statPoints + result.statPointsAwarded,
         title: comp.rewardTitle || prev.player.title
       }
     }));
+  };
+
+  // Recalibrate Progress to Fix Accidental Level / Stat Inflation Exploits
+  const handleRecalibrateProgress = () => {
+    soundEngine.playLevelUp();
+    const completedQuestsXp = (gameState.quests || [])
+      .filter(q => q.status === 'completed')
+      .reduce((sum, q) => sum + (q.xpReward || 50), 0);
+    const totalLegitimateXp = Math.max(0, completedQuestsXp);
+
+    let lvl = 1;
+    let reqXp = 100;
+    let remaining = totalLegitimateXp;
+    while (remaining >= reqXp && lvl < 100) {
+      remaining -= reqXp;
+      lvl += 1;
+      reqXp = Math.round(reqXp * 1.25);
+    }
+
+    setGameState(prev => ({
+      ...prev,
+      player: {
+        ...prev.player,
+        level: lvl,
+        rank: lvl >= 5 ? 'D-Rank' : 'E-Rank',
+        currentXp: remaining,
+        requiredXp: reqXp,
+        statPoints: Math.max(0, (lvl - 1) * 3)
+      }
+    }));
+    alert(`✦ System Recalibrated: Hunter stats re-aligned to legitimate level LV.${lvl}.`);
   };
 
   const handleCreateCompetition = (newComp: Competition) => {
@@ -1155,6 +1201,7 @@ export const App: React.FC = () => {
           updateSettings={handleUpdateSettings}
           fullState={gameState}
           onRestoreState={restored => setGameState(restored)}
+          onRecalibrateProgress={handleRecalibrateProgress}
           onClose={() => setIsSettingsOpen(false)}
           updateAvailable={updateAvailable}
           onApplyUpdate={handleApplyUpdate}
@@ -1193,20 +1240,6 @@ export const App: React.FC = () => {
         isOpen={isBatchModalOpen}
         onClose={() => setIsBatchModalOpen(false)}
         onSubmitBatch={handleSubmitBatchEvidence}
-      />
-
-      {/* Interactive Holographic Voice Guide & Dedication Terminal */}
-      <ShadowVoiceWidget
-        player={gameState.player}
-        quests={gameState.quests}
-        voiceEnabled={voiceEnabled}
-        onToggleVoice={() => {
-          soundEngine.playPing();
-          setVoiceEnabled(next => !next);
-        }}
-        onSelectFocusQuest={() => {
-          setActiveTab('quests');
-        }}
       />
 
       {/* Edit Hunter Profile & Identity Registration Modal */}
